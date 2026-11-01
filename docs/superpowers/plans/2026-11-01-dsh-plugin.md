@@ -10,7 +10,7 @@
 
 **规格：** `docs/superpowers/specs/2026-11-01-dsh-plugin-design.md`（已批准）
 
-**工作区：** `.agents/worktrees/feat/dsh-plugin`（分支 `feat/dsh-plugin`，基线 `14597a7`）
+**工作区：** 仓库主检出（分支 `dsh-weiyu`，基线 `14597a7`；开发初期在隔离 worktree 进行，现已并入主检出）
 
 ---
 
@@ -163,7 +163,7 @@ window.__ModuleLoader__.load({
 
 ```powershell
 # 用 plugin_manager 工具（不是 shell）：
-# action=install_bundle, target=E:\Gitee\deepfeiyu\.agents\worktrees\feat\dsh-plugin\dsh-plugin
+# action=install_bundle, target=<仓库根>/dsh-plugin
 ```
 
 预期：`application: applied`（或 `restart-required`）；`warnings` 不阻断。

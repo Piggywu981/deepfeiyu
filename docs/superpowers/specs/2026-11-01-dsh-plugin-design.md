@@ -2,7 +2,7 @@
 
 - 状态：待用户审查
 - 日期：2026-11-01
-- 分支：`feat/dsh-plugin`（worktree：`.agents/worktrees/feat/dsh-plugin`）
+- 分支：`dsh-weiyu`（仓库主检出；开发初期在隔离 worktree 进行，现已并入主检出）
 - 基线：`v1.0.1` / `14597a7`
 - 需求来源：用户口头需求「开一个新的 worktree，把本项目做成 deepseek harness 的插件」+ 两轮澄清（形态 C；B3 含发送；生命周期自动拉起 + 可切 attach；发送约束跟随 Harness 权限模式）
 
