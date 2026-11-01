@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "DeepFeiyu WeChat Agent",
+    "description": "Run and control the DeepFeiyu WeChat agent console from the Harness UI, and let the agent read chats and send messages through the same guarded console API."
+  }
+}
