@@ -845,18 +845,19 @@ window.__ModuleLoader__.load({
             renderStats());
         }
 
-        // 两个 slot 的注册都挂在 apply 的 effect 上，插件卸载时自动清理。
-        ctx.effect(() => ctx.slots.register({
+        // 用 slots.inject 等父声明就绪后再注册：冷启动时 UI 树尚未声明这两个 slot，
+        // 直接 register 会抛 "slot ... is not declared"，让 Client 插件激活失败并触发 boot 审计 fatal。
+        ctx.effect(() => ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
           name: 'sidebar.panellist',
           id: 'deepfeiyu',
           order: 20,
           label: () => 'Deep肥鱼',
-        }, DeepFeiyuIcon), 'deepfeiyu.sidebar-icon');
+        }, DeepFeiyuIcon)), 'deepfeiyu.sidebar-icon');
 
-        ctx.effect(() => ctx.slots.register({
+        ctx.effect(() => ctx.slots.inject('main', () => ctx.slots.register({
           name: 'main',
           key: 'deepfeiyu',
-        }, DeepFeiyuPanel), 'deepfeiyu.main-panel');
+        }, DeepFeiyuPanel)), 'deepfeiyu.main-panel');
       },
     };
   },
