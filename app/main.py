@@ -16,7 +16,7 @@ from urllib.parse import urlparse
 
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, AsyncIterator
+from typing import Any, AsyncIterator, Literal
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
@@ -517,6 +517,9 @@ async def message_image(uid: str, msg_id: str) -> FileResponse:
 
 class SendBody(BaseModel):
     text: str
+    # human = 控制台人工发送（不排队）；dsh = Harness 智能体发送（走既有节流队列）。
+    # 默认 human，非法值由 Pydantic 返回 422，不在这里手工校验。
+    source: Literal["human", "dsh"] = "human"
 
 
 @app.post("/api/chats/{uid}/send")
@@ -526,7 +529,7 @@ async def send(request: Request, uid: str, body: SendBody) -> dict[str, Any]:
         raise HTTPException(400, "内容不能为空")
     session = session_of(request)
     try:
-        record = await session.send_text(uid, text, source="human")
+        record = await session.send_text(uid, text, source=body.source)
     except Exception as exc:
         raise HTTPException(500, str(exc))
     pause = int(config.load()["auto"].get("takeover_pause_min", 0) or 0)
