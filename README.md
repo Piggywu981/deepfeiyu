@@ -384,6 +384,46 @@ Python 插件与应用同权限运行，只装你信任的代码。
 }
 ```
 
+## 7.5 DSH 插件（DeepSeek Harness）
+
+`dsh-plugin/` 是一个**无构建**的 Cordis bundle，把 Deep肥鱼接进 DeepSeek Harness（下称 DSH）：DSH 侧栏出现「Deep肥鱼」原生面板，Harness 里的智能体拿到 8 个 `deepfeiyu_*` 工具，插件还能按需拉起/停止本仓库的控制台进程。它不重写本项目，也不新增运行时——Host 半（`index.js` + `lib/`）只通过 HTTP 调用既有的 `http://127.0.0.1:8765` API，Client 半（`client.js`）是注册在 DSH slot 里的原生 React 面板（不是 iframe）。
+
+**安装**
+
+1. 先在仓库根目录跑一次 `run.bat`，确认 `.venv` 可用；插件不负责装 Python 依赖，`.venv` 缺失时面板会给出「先运行 run.bat」的可读错误。
+2. 在 DSH 的插件管理界面里安装本地目录 `dsh-plugin/`；或让 DSH 里的智能体用 `plugin_manager` 安装本地目录（`action=install_bundle`，`target` 填 `dsh-plugin/` 的绝对路径）。
+3. 安装后刷新 DSH 页面（首次安装要加载新的 Client 模块）；替换已装包通常需要重启 Harness。
+4. 默认 `mode=auto`、`autostart=true`：插件激活时先探测控制台，没运行就用本仓库 `.venv` 的 Python 拉起 `-m app.main`；已经在运行则直接附着。只想附着、不许插件拉起进程，把 `mode` 改成 `attach`。
+
+> 本仓库的自动化测试只覆盖 Python 侧 `send` 的 `source` 语义和 bundle 静态一致性（manifest / patch / locale / icon / files / 8 个工具名 / `node --check`）。面板视觉、审批弹窗交互与实机安装需要在目标 Harness 上人工验收；本文不宣称这些已经验证。
+
+**配置**（写在 Harness 的插件配置里；不是 `data/config.json`）
+
+| 字段 | 默认 | 说明 |
+|---|---|---|
+| `projectDir` | 由插件包位置推断（`dsh-plugin/` 的上一级） | Deep肥鱼仓库根，可覆盖 |
+| `pythonPath` | `<projectDir>/.venv/Scripts/python.exe`（非 Windows 为 `.venv/bin/python`） | 拉起控制台用的解释器；不存在时报可读错误，不自动下载依赖 |
+| `mode` | `auto` | `auto` 自动拉起；`attach` 只探测、不拉起 |
+| `autostart` | `true` | 仅 `mode=auto` 时生效：插件激活即拉起 |
+| `host` / `port` | `127.0.0.1` / `8765` | 控制台监听地址；与控制台 `server.host/port` 不一致时连不上 |
+| `accessToken` | 空 | 控制台访问令牌；空则依次回退环境变量 `DEEPFEIYU_ACCESS_TOKEN`、`data/config.json` 的 `server.access_token` |
+| `requestTimeoutMs` | `5000` | 普通请求超时 |
+| `sendTimeoutMs` | `60000` | 发送超时；服务端节流可能排队，所以比普通请求长 |
+| `panelTitle` | `Deep肥鱼` | 面板标题 |
+
+**安全说明**
+
+- **服务端闸门不削弱**：插件的所有发送都走 Python 既有 `send_text`，身份闸门（`_assert_send_allowed`）、`send.forbidden_wxids`、写操作只允许本机、未设令牌时的本机来源限制与令牌校验全部原样生效，插件绕不过去。
+- **发送来源**：面板里人点「发送」等价控制台人工发送（`source=human`，不排队）；Agent 调 `deepfeiyu_send` 用 `source=dsh`，走既有发送节流（全局最小间隔 + 同会话冷却），不是新增的发送通道。
+- **审批跟随 Harness 权限模式**：逐步审批 / 自动审批模式下，Agent 发送先走审批（只有 `allowed-once` 才发出）；完全批准模式下不弹审批，但仍受上面全部服务端闸门约束；没有审批服务时默认拒绝发送（fail closed）。
+- **令牌不落盘**：访问令牌只由 Host 半在内存中读取（插件配置 → 环境变量 → `data/config.json`），不回显给面板、不进工具结果、不写日志、不写入仓库。
+- **只连本机**：插件只请求 `http://127.0.0.1:<port>`，不引入遥测、外联请求或第三方上报；聊天内容只回给调用它的面板/智能体，不落插件日志。
+- 插件管理的控制台子进程由插件自己拉起，卸载时只终止**自己拉起**的进程；`attach` 到的已有实例不动。
+
+**卸载**
+
+用 DSH 插件管理卸载（或让智能体 `plugin_manager remove_bundle`），然后刷新页面。回滚到不带插件：卸载后删除 `dsh-plugin/`，本次 Python 侧改动（`SendBody.source` 可选字段）不改变既有调用方行为，可随分支整体丢弃。卸载顺序建议先确认控制台已被插件停止或本就是你手工启动的实例，避免留下「已附着」的假象。
+
 ## 8. 目录结构
 
 ```
@@ -425,6 +465,7 @@ app/
   static/              控制台前端（原生 JS，无构建）
 skills/                可选：本机 SKILL.md 技能
 plugins/               可选：本机 plugin.json 插件
+dsh-plugin/            DSH 插件 bundle（可选）：Harness 面板 + Agent 工具 + 控制台监管
 tools/                 开发辅助：假模型服务、素材装配、发布快照与扫描闸门
 tests/                 pytest（无网络依赖；上游 helper 契约测试真跑子进程）
 vendor/                上游组件：MIT 目录随仓分发，受限素材以子模块引用
@@ -489,7 +530,7 @@ POST <callback_url>
 | GET | `/api/stats` | 当前账号统计、7 日趋势、token 用量 |
 | GET | `/api/chats` | 当前账号会话列表 |
 | GET | `/api/chats/{uid}/messages` | 消息记录（uid = `账号id:会话id`） |
-| POST | `/api/chats/{uid}/send` | 人工发消息（触发接管暂停） |
+| POST | `/api/chats/{uid}/send` | 发消息（`source` 可选 `human` / `dsh`，默认 `human`；触发接管暂停） |
 | POST | `/api/chats/{uid}/send-emoji` | 人工发动画表情（wcferry / weixin4 支持） |
 | GET | `/api/emojis` | 当前账号收藏的表情 |
 | POST | `/api/emojis` | 收藏表情 |

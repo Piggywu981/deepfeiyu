@@ -4,6 +4,17 @@
 
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。`v1.0.0` 是本项目的第一个发行版，`v1.0.1` 是当前发行版；其下按开发日期分组记录了从 2026-10-21 起的全部显著变更——包括后来被移除或改写的实验，阅读时以「当前版本实际包含什么」为准，功能可用性以控制台与 `docs/使用说明.md` 为准。
 
+## [未发布]
+
+### 2026-11-01 · DSH 插件（DeepSeek Harness）
+
+- 新增 `dsh-plugin/`（无构建 Cordis bundle）：Harness 侧栏「Deep肥鱼」原生面板（状态 / 账号 / 会话 / 消息 / 发送 / 今日统计 / 控制台启停 / 打开完整控制台）、8 个 `deepfeiyu_*` Agent 工具、控制台进程监管（`mode=auto` 自动拉起或 `attach` 只附着）与发送审批。
+- `POST /api/chats/{uid}/send` 新增可选 `source` 字段：`human`（默认，控制台人工发送不排队）或 `dsh`（Harness 智能体发送，走既有发送节流队列）；其他值由 Pydantic 返回 422，空白文本仍返回 400。服务端身份闸门、`send.forbidden_wxids`、写操作本机限制与令牌校验均未改变。
+- Agent 发送跟随 Harness 权限模式：逐步审批 / 自动审批走审批弹窗（`allowed-once` 才发送），完全批准直接发送；缺少审批服务时按拒绝处理（fail closed）。
+- 新增 `tests/test_send_source.py`（来源语义与校验）与 `tests/test_dsh_plugin.py`（bundle 静态一致性：manifest、patch、locale、icon、files、8 个工具名、`node --check`）。
+- `README.md` 与 `docs/使用说明.md` 新增 DSH 插件章节：安装、配置表、安全说明、`source` 参数与故障排查。
+- 未验证（需在目标 Harness 人工验收）：面板视觉、审批弹窗交互、实机安装与真实发送；本仓库只验证 Python 侧行为与 bundle 静态一致性。
+
 ## [1.0.1] - 2026-11-01
 
 > 本版为 **v1.0.1**：内容等同原计划的 v1.0.0 重新发行，包含法律合规、安全修复、非商业许可、协作规则与发行免责声明。GitHub 的 `v1.0.0` 是 immutable release，tag 无法移动且不可复用，因此当前快照以 `v1.0.1` 发布；两个镜像的 `v1.0.0` 均保留为原始提交。
