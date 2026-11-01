@@ -2,11 +2,11 @@
 
 「Deep肥鱼」（DeepFeiyu WeChat Agent）的所有显著变更记录在本文件中。
 
-格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。`v1.0.0` 是本项目的第一个发行版，其下按开发日期分组记录了从 2026-10-21 起的全部显著变更——包括后来被移除或改写的实验，阅读时以「当前版本实际包含什么」为准，功能可用性以控制台与 `docs/使用说明.md` 为准。
+格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。`v1.0.0` 是本项目的第一个发行版，`v1.0.1` 是当前发行版；其下按开发日期分组记录了从 2026-10-21 起的全部显著变更——包括后来被移除或改写的实验，阅读时以「当前版本实际包含什么」为准，功能可用性以控制台与 `docs/使用说明.md` 为准。
 
-## [1.0.0] - 2026-11-01（重新发行）
+## [1.0.1] - 2026-11-01
 
-> 本版为 **v1.0.0 的重新发行**：在原 1.0.0 基础上补充法律合规、安全修复、非商业许可、协作规则与发行免责声明。原 tag 与 Release 已由本次快照替换。
+> 本版为 **v1.0.1**：内容等同原计划的 v1.0.0 重新发行，包含法律合规、安全修复、非商业许可、协作规则与发行免责声明。GitHub 的 `v1.0.0` 是 immutable release，tag 无法移动且不可复用，因此当前快照以 `v1.0.1` 发布；两个镜像的 `v1.0.0` 均保留为原始提交。
 
 **本次重新发行包含**
 
@@ -50,7 +50,7 @@
 - 桌宠素材解包增加路径穿越防护：zip 逐条校验绝对路径与 `..`，tar 使用 `filter="data"`。
 - 新增 `tests/test_local_guard.py`、`tests/test_webhook_inbound.py`、`tests/test_pet_assets.py` 用例；`tests/test_readme_claims.py` 改用显式用例 id，避免 Windows 环境变量长度上限。
 
-### 2026-10-31 · 首次发行
+## [1.0.0] - 2026-10-31
 
 本版本是 Deep肥鱼的第一个正式发行版：一个有独立人格、掌管自己多个微信账号的 AI 智能体——消息实时接入，它自己判断该不该回，再调用工具发消息，附一个可操作的 Web 控制台。
 
@@ -698,3 +698,4 @@ AI 回消息默认带上微信原生「引用」，让对方一眼知道在答�
 - 微信 4.x 逆向实测报告与 NOTICE 署名
 
 [1.0.0]: https://github.com/PiggyWu981/deepfeiyu/releases/tag/v1.0.0
+[1.0.1]: https://github.com/PiggyWu981/deepfeiyu/releases/tag/v1.0.1
