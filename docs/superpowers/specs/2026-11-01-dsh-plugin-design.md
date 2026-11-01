@@ -33,11 +33,11 @@ Deep肥鱼是 Python/FastAPI + 原生 JS 的独立微信智能体控制台（默
 1. **DSH bundle 形式**：`package.json`（`name/version/private/type:module/exports/dsh.bundle.patch`）+ `cordis.patch.yml` + Host `index.js` + Client `client.js`（`window.__ModuleLoader__.load`）。**无需构建、无需 npm 依赖、无需 install 脚本**；本地目录安装是 link checkout。
 2. **页面/面板禁止 iframe**（`references/practices.md` 原文：iframe 文档拿不到宿主主题 token、明暗切换与 `ctx.locale`）。插件页面必须是注册在 slot 里的原生 React 组件。
 3. **面板接入点**（`Slots.listSubTree` 实测）：`sidebar.panellist`（list，全局面板图标，`id` 对应 `main` 面板）+ `main`（keyed，"Central panel selected by sidebar entry id"）。注册同 id 即可出现在侧栏并获得中央页面。
-4. **无构建数据通道**：官方 **Connection 通用 RPC**
-   - Host：`ctx.connection.rpc.handle(channel, async (endpoint, payload, signal, peer) => ({ok:true,value}) | {ok:false,error:{code,message,details}})`
-   - Client：`ctx.connection.rpc.call(channel, endpoint, payload, signal)`（Client bundle 可 `inject: ['connection']`）
-   - 自动注册 prefix 路由并先做 Cookie + Host/Origin 鉴权；**自定义 `webServer` 路由默认无鉴权**（必须自行 `requestRejection`），故不采用自建路由方案。
-   - 无 Typert schema、无参数校验；`@Remote` 需要构建期生成，本安装不含构建工具，**不采用**。
+4. **无构建数据通道（P0 实机结论）**：采用 **`webServer` 同源路由 + `ctx.connection.requestRejection` 鉴权 + 同源 `fetch`**：
+   - Host：`ctx.webServer.register({ kind:'prefix', path:'/deepfeiyu', handler(req,res) })`；handler 内先 `ctx.connection.requestRejection({ headers: req.headers })`（401/403 直接拒绝），再读取 JSON body 并返回 `{ok:true,value}` / `{ok:false,error:{code,message,details}}`。
+   - Client：`fetch('/deepfeiyu/<endpoint>', { method:'POST', headers:{'content-type':'application/json'}, credentials:'same-origin', body })`；浏览器 Cookie 由同源请求自动携带。
+   - 曾尝试官方 **Connection 通用 RPC**（`ctx.connection.rpc.handle` / `rpc.call`，无 Typert schema）：实机激活即抛 `cannot get property "webServer" without inject`；根因在 `@deepseek-ai/dsh-client-connection/lib/index.js:871` 用带 inject 校验的 `owner.webServer`，经 Cordis shadow 上下文解析到未注入 `webServer` 的 fiber——库内部路径问题，本安装不可用，故改用上面的备选。
+   - `@Remote` 需要构建期生成，本安装不含构建工具，**不采用**。
 5. **官方浏览器标签页**：`ctx.sidebarRight.openTab('browser', { params: { url } })`（Desktop 用 Electron `<webview>`，Web 用 sandbox 化 iframe）可用于在 Harness 右侧栏内打开外部网页；由宿主实现，不是插件自己嵌 iframe。→ 用作「完整控制台」入口。
 6. **子进程**：`@deepseek-ai/dsh-subprocess-local` 已挂载，`inject: ['subprocess']` 可用 `spawn(spec)` / `terminate()` / `waitForExit()` / `done`；服务 dispose 会终止其管理的进程。
 7. **工具注册**：`ctx.tools.register(definition)`；`parameters` 直接传**完整 JSON Schema 形态**（`{type:'object', properties:{...}, required:[...]}`），`output.schema` 是受限 JSON Schema 子集，`output.render` 返回 `ContentBlock[]`，`execute(args, exec)` 直接 throw 表示失败。`defineTool` 来自 `@deepseek-ai/dsh-tools`，本插件不 import（避免新增依赖）；Registry 的 `schemas()` 只投影 schema 字段，P0 验证投影后模型可见 schema 正确。
@@ -50,7 +50,7 @@ Deep肥鱼是 Python/FastAPI + 原生 JS 的独立微信智能体控制台（默
 | 方案 | 结论 |
 |---|---|
 | iframe 内嵌完整控制台 | **否决**：practices.md 明确禁止，且拿不到主题/明暗/locale |
-| 自建 `webServer` 路由 + 自造 token | 仅作备选：默认无鉴权，需自行 `requestRejection`；遗漏即公开路由 |
+| `webServer` 路由 + `requestRejection` + 同源 fetch | **采用（P0 已验证）**：复用 Connection 的 Cookie/Host/Origin 鉴权，不依赖不可用的 Connection RPC |
 | Typert `@Remote` 生成 Client 调用 | **否决**：需构建期工具，安装内不可用 |
 | 完整移植 Python 后端为 Cordis/Node 插件 | **否决**：等于重写项目，违反「不引入新运行时」 |
 | **原生 React 面板 + Connection RPC + 官方 browser 标签页** | **采用** |
@@ -65,7 +65,7 @@ Deep肥鱼是 Python/FastAPI + 原生 JS 的独立微信智能体控制台（默
 │   ├─ sidebar.panellist  : 「Deep肥鱼」图标（自绘 SVG，size/active owner props）             │
 │   ├─ main[deepfeiyu]    : 原生面板（状态/账号/会话/消息/发送/统计/启停）                    │
 │   └─ 完整控制台按钮      : ctx.sidebarRight.openTab('browser', {params:{url}})  ← 宿主 tab  │
-│            │ Connection RPC（Cookie+Host/Origin 鉴权，channel '/deepfeiyu'）              │
+│            │ 同源 fetch → /deepfeiyu 路由（requestRejection 鉴权）                          │
 │  Host 半（dsh-plugin/index.js）                                                           │
 │   ├─ 唯一操作实现层：fetch → http://127.0.0.1:8765 现有 API（携带访问令牌）                 │
 │   ├─ 会话/审批桥：ctx.sessions + ctx.permissionPresets + ctx.approval                     │
@@ -82,7 +82,7 @@ Deep肥鱼是 Python/FastAPI + 原生 JS 的独立微信智能体控制台（默
 
 ### 5.2 Host 插件（`dsh-plugin/index.js`）
 
-- 入口：硬依赖 `export const inject = ['tools', 'subprocess', 'connection']`；`approval` / `sessions` / `permissionPresets` 通过 `ctx.get(...)` 可选获取（缺失时 agent 发送按 fail-closed 的 `ask` 处理）。`export function apply(ctx, config)`。
+- 入口：硬依赖 `export const inject = ['tools', 'subprocess', 'connection', 'webServer']`；`approval` / `sessions` / `permissionPresets` 通过 `ctx.get(...)` 可选获取（缺失时 agent 发送按 fail-closed 的 `ask` 处理）。`export function apply(ctx, config)`。
 - 配置：`apply` 内规范化（见 §7）；非法值给出可读中文错误并使插件不激活。
 - 控制台监督：
   - `mode: auto`（默认）：激活时先探测 `/api/health`；未运行且 `autostart`（默认 true）则用 `ctx.subprocess.spawn` 拉起 `[pythonPath, '-m', 'app.main']`，`cwd = projectDir`，`env` 继承 + `PYTHONUTF8=1`；`stdio.stdout/stderr` 收集模式（仅保留尾部用于错误诊断，不落日志、不进工具输出）。
@@ -100,7 +100,7 @@ Deep肥鱼是 Python/FastAPI + 原生 JS 的独立微信智能体控制台（默
   6. `deepfeiyu_stats`（只读）
   7. `deepfeiyu_capabilities`（只读：技能/插件/MCP 状态）
   8. `deepfeiyu_console`（写：`start|stop|restart|status`，本机进程控制）
-- RPC 契约（channel `/deepfeiyu`，payload 为 JSON）：
+- 面板数据路由（同源 HTTP，全部 `POST /deepfeiyu/<endpoint>`，JSON body；`requestRejection` 鉴权）：
 
 | endpoint | payload | value |
 |---|---|---|
@@ -115,11 +115,11 @@ Deep肥鱼是 Python/FastAPI + 原生 JS 的独立微信智能体控制台（默
 | `capabilities` | `{}` | `{capabilities}` |
 
   错误统一 `{ok:false, error:{code, message, details}}`；`code` 为稳定标识（如 `CONSOLE_DOWN`、`SEND_REJECTED`、`INVALID_ARGS`）。
-- 生命周期：所有注册（tools / rpc.handle / 定时器 / 子进程）都在 `ctx.effect` 内并返回 disposer；`rpc.handle` 的 disposer 是异步的，按 `await` 处理。
+- 生命周期：所有注册（tools / `webServer.register` 路由 / 定时器 / 子进程）都在 `ctx.effect` 内并返回 disposer。
 
 ### 5.3 Client 面板（`dsh-plugin/client.js`）
 
-- 模块：`window.__ModuleLoader__.load({ id: '@local/deepfeiyu-dsh', factory(require){ const React = require('react'); return { inject:['slots','connection'], apply(ctx){...} } } })`；工厂无副作用；资源注册在 `apply` + `ctx.effect`。
+- 模块：`window.__ModuleLoader__.load({ id: '@local/deepfeiyu-dsh', factory(require){ const React = require('react'); return { inject:['slots'], apply(ctx){...} } } })`；工厂无副作用；资源注册在 `apply` + `ctx.effect`。
 - 注册：
   - `ctx.slots.register({name:'sidebar.panellist', id:'deepfeiyu', order:20, label: () => 'Deep肥鱼'}, DeepFeiyuIcon)`
   - `ctx.slots.register({name:'main', key:'deepfeiyu'}, DeepFeiyuPanel)`
@@ -130,7 +130,7 @@ Deep肥鱼是 Python/FastAPI + 原生 JS 的独立微信智能体控制台（默
   - 消息区：选中会话最近消息（方向、发送者、时间、文本/类型标签）；轮询 4s。
   - 发送框：textarea + 发送按钮（用户操作 → `send.text`，即 `source:"human"`）；错误就地显示。
   - 今日统计：进出消息数 / AI 回复数。
-- 数据：`ctx.connection.rpc.call('/deepfeiyu', endpoint, payload, signal)`；面板挂载时拉 `state`，之后按 4s 轮询（卸载/隐藏时清理定时器）。
+- 数据：`fetch('/deepfeiyu/<endpoint>', { method:'POST', headers:{'content-type':'application/json'}, credentials:'same-origin', body })`，宿主自动带浏览器 Cookie；面板挂载时拉 `state`，之后按 4s 轮询（卸载/隐藏时清理定时器）。
 - 样式：只用 `--dsw-alias-*` 主题 token，类名前缀 `dsh-deepfeiyu-`；不 import 任何 Harness Client 包、不写 DOM、不碰 `document.body`。
 - 文案：中文；`ctx.locale` 可用则 best-effort 注册，不可用则内置字典兜底。
 
@@ -258,7 +258,7 @@ docs/使用说明.md / CHANGELOG.md / README.md   # 用户可见文档
 4. **P3 Python + 测试 + 文档**：`SendBody.source`、两个测试文件、README/使用说明/CHANGELOG。
 5. **P4 安装 + 实机验证 + 修复**：按 §9 验收。
 
-## 12. 待验证假设（P0 消除）
+## 12. 待验证假设（P0 已全部消除，见 §14）
 
 - `connection.rpc.handle/call` 的实际可用性与卸载语义（`plans` 异步 disposer）。
 - Client bundle `inject:['connection']` 是否被 ModuleLoader 接受。
