@@ -284,3 +284,5 @@ docs/使用说明.md / CHANGELOG.md / README.md   # 用户可见文档
 - **面板**：数据、交互经用户实机验收通过（验收期间临时灌入 3 个合成演示会话 + 7 条消息，验收后已清除）。
 - **未验证**：真实微信通道下发消息（本机无 wcferry/微信 4.x 通道）、`ask` 模式审批弹窗交互、完整控制台入口的侧栏打开行为（代码优先 `ctx.sidebarRight.openTab('browser')`，异常降级 `window.open`）。
 - **测试**：`pytest -q` = **9 failed（环境性，与基线同集）/ 1408 passed / 1 skipped**；基线为 9 failed / 1392 passed / 1 skipped，新增 16 项即两个新测试文件；`release_snapshot.py --scan-tracked . --allow-no-policy` 通过。
+- **冷启动修复（2026-11-01）**：Client 插件在页面 boot 阶段直接 `ctx.slots.register` 会抛 `slot "sidebar.panellist" is not declared`（父 slot 尚未声明），fiber 置 `failed`、web boot 审计 fatal（应用无法启动）；live 启用路径因 UI 已挂载而不复现。改为 `ctx.slots.inject(slotKey, () => ctx.slots.register(...))` 后冷启动验证通过。
+- **冷启动调试方法**：审计日志只报 `entry: 状态` 不报底层异常；通过 Host 的 `clientModules.graph()/fetchBundle()` 与服务端拼接产物对比可验证产物；最终用「Client 阶段标记 + 同源 POST 回 Host 临时日志」拿到 `apply` 真实堆栈。
