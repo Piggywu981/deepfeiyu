@@ -1,0 +1,3 @@
+# 开发/测试依赖：普通用户按 README 装核心+可选组即可，不需要这个文件
+pytest>=8.0
+pytest-subtests>=0.11

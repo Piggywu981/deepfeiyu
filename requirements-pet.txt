@@ -1,0 +1,4 @@
+# 桌面宠物：复用上游 dsh-dafeiyu 的 PySide6 Helper 作子进程
+# Helper 只 import QtCore/QtGui/QtWidgets，装 Essentials 就够，不用整个 PySide6。
+# 不装就不启动桌宠，微信收发与控制台照常。
+PySide6-Essentials>=6.6

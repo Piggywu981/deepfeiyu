@@ -1,0 +1,1530 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Deep肥鱼 · 微信智能体</title>
+<link rel="stylesheet" href="/static/style.css" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐟</text></svg>" />
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M3 12c3.5-5 7.5-7 12-7 2.2 0 4.2.5 6 1.5-1.4 1.2-2.4 2.8-3 4.7 1.9.9 3.9 1.4 6 1.4-1.9 1-4 1.5-6 1.5-4.5 0-8.5-2-12-7z" fill="currentColor"/><circle cx="16" cy="10.6" r="1" fill="#fff"/></svg>
+      </div>
+      <div class="brand-text">
+        <strong>Deep肥鱼</strong>
+        <span>WeChat Agent</span>
+      </div>
+    </div>
+
+    <div class="account-switch" id="accountSwitch">
+      <button class="acc-current" id="accCurrent">
+        <span class="acc-avatar" id="accAvatar">主</span>
+        <span class="acc-meta">
+          <span class="acc-name" id="accName">主账号</span>
+          <span class="acc-sub" id="accSub">正在连接…</span>
+        </span>
+        <svg class="chev" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
+      </button>
+      <div class="acc-menu" id="accMenu" hidden></div>
+    </div>
+
+    <nav class="nav" id="nav">
+      <button class="nav-item active" data-page="overview">
+        <svg viewBox="0 0 24 24"><path d="M4 13h6V4H4v9zm0 7h6v-5H4v5zm10 0h6v-9h-6v9zm0-16v5h6V4h-6z"/></svg>
+        <span>概览</span>
+      </button>
+      <button class="nav-item" data-page="chats">
+        <svg viewBox="0 0 24 24"><path d="M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-5 4V6a1 1 0 0 1 1-1z"/></svg>
+        <span>会话</span>
+        <em class="nav-badge" id="chatCount">0</em>
+      </button>
+      <button class="nav-item" data-page="agent">
+        <svg viewBox="0 0 24 24"><path d="M12 2l2.2 5.6L20 9.8l-5.8 2.2L12 18l-2.2-6L4 9.8l5.8-2.2L12 2z"/><circle cx="18.5" cy="18" r="2.2"/></svg>
+        <span>智能体</span>
+      </button>
+      <button class="nav-item" data-page="memory">
+        <svg viewBox="0 0 24 24"><path d="M13 3a9 9 0 0 0-9 9H1l3.9 3.9L8.8 12H6a7 7 0 1 1 2.1 5l1.4 1.4A9 9 0 1 0 13 3zm-1.5 5.5v5l4.3 2.6.75-1.23-3.55-2.12V8.5z"/></svg>
+        <span>记忆</span>
+      </button>
+      <button class="nav-item" data-page="growth">
+        <svg viewBox="0 0 24 24"><path d="M12 2l2.2 5.6L20 9.8l-5.8 2.2L12 18l-2.2-6L4 9.8l5.8-2.2L12 2z"/></svg>
+        <span>成长</span>
+        <em class="nav-badge" id="growthBadge" hidden>0</em>
+      </button>
+      <button class="nav-item" data-page="mood">
+        <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16zM9 9.2a1.4 1.4 0 1 1 0 2.8 1.4 1.4 0 0 1 0-2.8zm6 0a1.4 1.4 0 1 1 0 2.8 1.4 1.4 0 0 1 0-2.8zm-6.3 4.9a4.7 4.7 0 0 0 6.6 0l1.4 1.4a6.7 6.7 0 0 1-9.4 0l1.4-1.4z"/></svg>
+        <span>心情</span>
+      </button>
+      <button class="nav-item" data-page="proactive">
+        <svg viewBox="0 0 24 24"><path d="M4 5h11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H9l-5 4V6a1 1 0 0 1 1-1zm13 2h1.5a3 3 0 0 1 3 3v3a3 3 0 0 1-3 3H17v2.2a.9.9 0 0 1-1.6.6l-2.4-2.8H8v-1.5h9.5a1.5 1.5 0 0 0 1.5-1.5v-3a1.5 1.5 0 0 0-1.5-1.5H17V7z"/></svg>
+        <span>搭话</span>
+      </button>
+      <button class="nav-item" data-page="pet">
+        <svg viewBox="0 0 24 24"><path d="M3 13c0-4 3.6-7 8-7 3.2 0 6 1.8 7.4 4.4l2.1-1.6a1 1 0 0 1 1.5 1.2l-1.6 3.4 1.6 3.3a1 1 0 0 1-1.5 1.2l-2.4-1.8C16.7 19.4 14 21 11 21c-4.4 0-8-3-8-8zm8-5a1.6 1.6 0 1 0 0 3.2A1.6 1.6 0 0 0 11 8z"/></svg>
+        <span>桌宠</span>
+      </button>
+      <button class="nav-item" data-page="moments">
+        <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16zM8.5 9.5a1.3 1.3 0 1 1 0 2.6 1.3 1.3 0 0 1 0-2.6zm7 0a1.3 1.3 0 1 1 0 2.6 1.3 1.3 0 0 1 0-2.6zM7.5 14.2a5.6 5.6 0 0 0 9 0l1.3 1a7.1 7.1 0 0 1-11.6 0l1.3-1z"/></svg>
+        <span>朋友圈</span>
+        <em class="nav-badge" id="momentBadge" hidden>0</em>
+      </button>
+      <button class="nav-item" data-page="emojis">
+        <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16zM9 9.2a1.4 1.4 0 1 1 0 2.8 1.4 1.4 0 0 1 0-2.8zm6 0a1.4 1.4 0 1 1 0 2.8 1.4 1.4 0 0 1 0-2.8zm-6.3 4.9a4.7 4.7 0 0 0 6.6 0l1.4 1.4a6.7 6.7 0 0 1-9.4 0l1.4-1.4z"/></svg>
+        <span>表情包</span>
+      </button>
+      <button class="nav-item" data-page="capabilities">
+        <svg viewBox="0 0 24 24"><path d="M20.5 11H19V7a2 2 0 0 0-2-2h-4V3.5a2.5 2.5 0 0 0-5 0V5H4a2 2 0 0 0-2 2v4h1.5a2.5 2.5 0 0 1 0 5H2v4a2 2 0 0 0 2 2h4v-1.5a2.5 2.5 0 0 1 5 0V22h4a2 2 0 0 0 2-2v-4h1.5a2.5 2.5 0 0 0 0-5z"/></svg>
+        <span>能力</span>
+      </button>
+      <button class="nav-item" data-page="settings">
+        <svg viewBox="0 0 24 24"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm9 4a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L16 3H8l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6a7 7 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L8 21h8l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2z"/></svg>
+        <span>设置</span>
+      </button>
+      <button class="nav-item" data-page="usage">
+        <svg viewBox="0 0 24 24"><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v18H6.5A2.5 2.5 0 0 0 4 22V4.5zm2.5-.7a.7.7 0 0 0-.7.7V19.4c.2-.1.5-.1.7-.1H18V3.8H6.5zM8 7h8v1.6H8V7zm0 3.5h8V12H8v-1.5z"/></svg>
+        <span>说明</span>
+      </button>
+      <button class="nav-item" data-page="eula">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm0 2.5L18.5 9H14V4.5zM8 13h8v1.6H8V13zm0 3.5h8V18H8v-1.5z"/></svg>
+        <span>协议</span>
+      </button>
+    </nav>
+
+    <div class="side-card">
+      <div class="side-card-title">当前通道</div>
+      <div class="side-driver" id="sideDriver">—</div>
+      <div class="side-sub" id="sideDriverSub">正在连接…</div>
+      <button class="mini-btn" id="btnRestart">重新连接</button>
+      <button class="mini-btn" id="btnReboot">重启服务</button>
+      <button class="mini-btn mini-btn-danger" id="btnShutdown">关闭服务</button>
+    </div>
+
+    <div class="side-foot">
+      <span class="dot-live"></span> 本地运行 · 数据不出机
+    </div>
+    <div class="side-foot side-ver">
+      <span id="verLabel" title="检查与 Gitee 仓库的最新版本">版本 —</span>
+      <button class="link-btn btn-check-update">检查更新</button>
+    </div>
+  </aside>
+
+  <!-- id="root" 是 dsh-whale 挂件启动自检的锚点：它在容器里找到 textarea 才挂载 -->
+  <main class="main" id="root">
+    <header class="topbar">
+      <div>
+        <h1 id="pageTitle">概览</h1>
+        <p id="pageDesc">微信账号与 AI 智能体的实时状态</p>
+      </div>
+      <div class="top-actions">
+        <span class="pill pill-ghost" id="pillConn"><i></i>连接中</span>
+        <span class="pill pill-ghost" id="pillAi"><i></i>AI 未配置</span>
+      </div>
+    </header>
+
+    <div class="banner" id="banner" hidden>
+      <div class="banner-icon">!</div>
+      <div class="banner-text">
+        <strong id="bannerTitle">尚未配置 DeepSeek API Key</strong>
+        <span id="bannerDesc">自动回复需要模型支持，填入 Key 后即可启用。</span>
+      </div>
+      <button class="btn btn-sm" onclick="go('settings')">去配置</button>
+    </div>
+
+    <section class="page active" id="page-overview">
+      <div class="hero card">
+        <div class="hero-left">
+          <div class="hero-eyebrow"><span class="pulse"></span><span id="heroState">正在初始化</span></div>
+          <h2>让 Deep肥鱼 自己盯着微信</h2>
+          <p id="heroDesc">消息实时接入 · 智能判断该不该回 · 工具调用直接发消息</p>
+          <div class="hero-actions">
+            <button class="btn btn-primary" onclick="go('agent')">
+              <svg viewBox="0 0 24 24"><path d="M12 2l2.2 5.6L20 9.8l-5.8 2.2L12 18l-2.2-6L4 9.8l5.8-2.2L12 2z"/></svg>
+              打开智能体
+            </button>
+          </div>
+        </div>
+        <div class="hero-art" aria-hidden="true">
+          <div class="orb orb-1"></div>
+          <div class="orb orb-2"></div>
+          <div class="hero-card-float">
+            <div class="mini-avatar">微</div>
+            <div>
+              <div class="mini-name">客户消息</div>
+              <div class="mini-msg">晚上七点半，别迟到～</div>
+            </div>
+          </div>
+          <div class="hero-card-float hero-card-float-2">
+            <span class="ai-chip">AI</span>
+            <div>
+              <div class="mini-name">Deep肥鱼</div>
+              <div class="mini-msg">收到，我六点下班过去</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat card">
+          <div class="stat-label">今日收到</div>
+          <div class="stat-value" id="statIn">0</div>
+          <div class="stat-foot">条消息</div>
+        </div>
+        <div class="stat card">
+          <div class="stat-label">今日发出</div>
+          <div class="stat-value" id="statOut">0</div>
+          <div class="stat-foot">条消息</div>
+        </div>
+        <div class="stat card">
+          <div class="stat-label">AI 回复</div>
+          <div class="stat-value accent" id="statAi">0</div>
+          <div class="stat-foot" id="statAiFoot">今日自动处理</div>
+        </div>
+        <div class="stat card">
+          <div class="stat-label">活跃会话</div>
+          <div class="stat-value" id="statChats">0</div>
+          <div class="stat-foot" id="statFootChats">个联系人 / 群</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card pad">
+          <div class="card-head">
+            <h3>近 7 天消息量</h3>
+            <div class="legend"><span><i class="lg-in"></i>收到</span><span><i class="lg-ai"></i>AI 回复</span></div>
+          </div>
+          <div id="chart" class="chart"></div>
+        </div>
+        <div class="card pad">
+          <div class="card-head"><h3>通道能力</h3><span class="tag" id="capDriver">—</span></div>
+          <div class="cap-list" id="capList"></div>
+          <div class="cap-note" id="capNote"></div>
+        </div>
+      </div>
+
+      <div class="card pad">
+        <div class="card-head">
+          <h3>最近动态</h3>
+          <button class="link-btn" onclick="loadEvents()">刷新</button>
+        </div>
+        <div class="event-list" id="eventList"><div class="empty-mini">暂无动态</div></div>
+      </div>
+    </section>
+
+    <section class="page" id="page-chats">
+      <div class="chats-layout">
+        <div class="chat-list-panel card">
+          <div class="chat-search">
+            <svg viewBox="0 0 24 24"><path d="M10 4a6 6 0 1 0 3.5 10.9l4.3 4.3 1.4-1.4-4.3-4.3A6 6 0 0 0 10 4zm0 2a4 4 0 1 1 0 8 4 4 0 0 1 0-8z"/></svg>
+            <input id="chatSearch" placeholder="搜索联系人或群" autocomplete="off" />
+          </div>
+          <div class="chat-bulk" id="chatBulk">
+            <button class="mini-btn" id="btnSelectMode">多选</button>
+            <div class="bulk-tools" id="bulkTools" hidden>
+              <button class="mini-btn" id="btnChatSelAll">全选</button>
+              <span class="bulk-count" id="chatSelCount">已选 0</span>
+              <span class="spacer"></span>
+              <button class="mini-btn" id="btnBulkManual">设为人工</button>
+              <button class="mini-btn" id="btnBulkAI">设为 AI</button>
+            </div>
+          </div>
+          <div class="chat-list" id="chatList"></div>
+        </div>
+
+        <div class="thread-panel card" id="threadPanel">
+          <div class="thread-empty" id="threadEmpty">
+            <div class="empty-illustration">
+              <svg viewBox="0 0 120 120"><rect x="18" y="26" width="84" height="58" rx="14" fill="#E8F7EF"/><path d="M40 96l14-14h26" stroke="#BFE9D2" stroke-width="6" fill="none" stroke-linecap="round"/><circle cx="48" cy="55" r="4" fill="#07C160"/><circle cx="60" cy="55" r="4" fill="#07C160"/><circle cx="72" cy="55" r="4" fill="#07C160"/></svg>
+            </div>
+            <h3>选择一个会话</h3>
+            <p>查看实时消息，或让 AI 接手回复</p>
+          </div>
+
+          <div class="thread" id="thread" hidden>
+            <div class="thread-head">
+              <button class="thread-back" id="btnThreadBack" title="返回会话列表" aria-label="返回会话列表">
+                <svg viewBox="0 0 24 24"><path d="M15.5 4.5L8 12l7.5 7.5-1.4 1.4L5.2 12l8.9-8.9z"/></svg>
+              </button>
+              <div class="avatar" id="threadAvatar">?</div>
+              <div class="thread-info">
+                <div class="thread-name" id="threadName">—</div>
+                <div class="thread-sub" id="threadSub">—</div>
+                <div class="bill-line" id="threadBill" hidden></div>
+              </div>
+              <div class="thread-actions">
+                <span class="pause-badge" id="pauseBadge" hidden>人工接管中</span>
+                <button class="btn btn-sm" id="btnResume" hidden onclick="resumeChat()">恢复 AI</button>
+                <label class="switch" title="该会话是否由 AI 自动回复">
+                  <input type="checkbox" id="chatAiToggle" />
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+            <div class="messages" id="messages"></div>
+            <div class="composer emoji-anchor">
+              <div class="emoji-panel" id="emojiPanel" hidden>
+                <div class="emoji-tabs">
+                  <button class="emoji-tab active" data-tab="builtin">微信表情</button>
+                  <button class="emoji-tab" data-tab="fav">收藏</button>
+                  <button class="emoji-tab" data-tab="tagged">标签墙</button>
+                  <button class="emoji-jump" id="btnEmojiWall" title="打开表情包页">打开表情墙 ↗</button>
+                  <button class="emoji-close" id="btnEmojiClose" title="关闭">×</button>
+                </div>
+                <div class="emoji-grid" id="emojiGrid"></div>
+              </div>
+              <button class="emoji-btn" id="btnEmoji" title="表情">
+                <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16zM8.5 11a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm7 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM12 17.5c2.03 0 3.8-1.11 4.75-2.75h-9.5A5.47 5.47 0 0 0 12 17.5z"/></svg>
+              </button>
+              <textarea id="composer" rows="1" placeholder="输入消息，Enter 发送 / Shift + Enter 换行"></textarea>
+              <button class="send-btn" id="btnSend" title="发送">
+                <svg viewBox="0 0 24 24"><path d="M3 11.5L21 3l-8.5 18-2.2-7.3L3 11.5z"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="page-agent">
+      <div class="agent-layout card" id="agentLayout">
+        <aside class="agent-history" id="agentHistory">
+          <div class="ah-head">
+            <div class="ah-title">对话历史</div>
+            <button class="icon-btn ah-close" id="btnAgentHistoryClose" title="收起历史" aria-label="收起历史">
+              <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+            </button>
+          </div>
+          <button class="ah-new" id="btnAgentNew">
+            <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+            新建对话
+          </button>
+          <div class="ah-list" id="agentConvList">
+            <div class="ah-empty">还没有对话</div>
+          </div>
+          <div class="ah-foot"><span class="dot-live"></span>历史只保存在本机</div>
+        </aside>
+
+        <div class="agent-main">
+          <div class="agent-head">
+            <button class="icon-btn agent-history-toggle" id="btnAgentHistory" title="历史对话" aria-label="历史对话">
+              <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+            </button>
+            <div class="agent-id">
+              <div class="agent-avatar">
+                <svg viewBox="0 0 24 24"><path d="M12 2l2.2 5.6L20 9.8l-5.8 2.2L12 18l-2.2-6L4 9.8l5.8-2.2L12 2z"/></svg>
+              </div>
+              <div class="agent-meta">
+                <div class="agent-name" id="agentName">Deep肥鱼 Agent</div>
+                <div class="agent-sub" id="agentSub">可读写微信 · 工具调用已开启</div>
+                <div class="bill-line" id="agentBill" hidden></div>
+              </div>
+            </div>
+            <div class="agent-head-actions">
+              <button class="icon-btn agent-new-top" id="btnAgentNewTop" title="新建对话" aria-label="新建对话">
+                <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+              </button>
+              <span class="agent-state idle" id="agentState"><i></i>就绪</span>
+            </div>
+          </div>
+
+          <div class="agent-body" id="agentBody">
+            <div class="agent-welcome" id="agentWelcome">
+              <h3>今天想让肥鱼游去哪儿？</h3>
+              <p>肥鱼可以直接潜入当前选中的微信账号：查会话、读上下文、发消息。</p>
+              <div class="suggests">
+                <button onclick="askAgent('帮我看看今天有哪些未回复的消息，列出来', [], '捞一捞没回的消息')">捞一捞没回的消息</button>
+                <button onclick="askAgent('把今天产品研发群的讨论总结一下', [], '吐个群聊总结')">吐个群聊总结</button>
+                <button onclick="askAgent('给林晓发消息说我会晚到十分钟', [], '甩尾替我发条消息')">甩尾替我发条消息</button>
+                <button onclick="askAgent('搜索最近提到“合同”的消息', [], '潜水搜聊天记录')">潜水搜聊天记录</button>
+                <button onclick="askAgent('查一下 DeepSeek 余额和今天已经花了多少', [], '看看余额')">看看余额</button>
+                <button onclick="askAgent('上一轮对话花了多少钱？', [], '查上轮话费')">查上轮话费</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="agent-composer">
+            <div class="agent-input-shell">
+              <div class="agent-attachments" id="agentAttachments" hidden></div>
+              <textarea id="agentInput" rows="1" placeholder="直接下指令，例如：把产品群今天的结论整理成三点发给王倩"></textarea>
+              <div class="agent-toolbar">
+                <button class="picker-btn attach-btn" id="btnAgentImage" type="button" title="添加图片" aria-label="添加图片">
+                  <svg class="picker-ico" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="3" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="9" cy="10" r="1.7" fill="currentColor"/><path d="M4.5 17l4.8-4.4 3.2 3 2.8-2.6 4.2 4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+                <input type="file" id="agentImageInput" accept="image/*" multiple hidden />
+                <div class="picker-wrap">
+                  <button class="picker-btn" id="btnModelPicker" aria-haspopup="listbox" aria-expanded="false" title="选择模型">
+                    <svg class="picker-ico" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M10 3v3M14 3v3M10 18v3M14 18v3M3 10h3M3 14h3M18 10h3M18 14h3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" fill="none"/></svg>
+                    <span class="picker-label" id="modelPickerLabel">模型</span>
+                    <svg class="chev" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
+                  </button>
+                  <div class="picker-pop" id="modelPop" hidden></div>
+                </div>
+                <div class="picker-wrap">
+                  <button class="picker-btn" id="btnEffortPicker" aria-haspopup="listbox" aria-expanded="false" title="选择思考强度">
+                    <svg class="picker-ico" viewBox="0 0 24 24"><path d="M12 2l1.8 4.6L18.5 8.4l-4.7 1.8L12 15l-1.8-4.8L5.5 8.4l4.7-1.8L12 2z"/></svg>
+                    <span class="picker-label" id="effortPickerLabel">思考 · 自动</span>
+                    <svg class="chev" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
+                  </button>
+                  <div class="picker-pop" id="effortPop" hidden></div>
+                </div>
+                <span class="composer-hint" id="agentHint">Enter 发送 · Shift + Enter 换行</span>
+                <button class="send-btn agent-send" id="btnAgentSend" title="发送" aria-label="发送" disabled>
+                  <svg class="icon-send" viewBox="0 0 24 24"><path d="M3 11.5L21 3l-8.5 18-2.2-7.3L3 11.5z"/></svg>
+                  <svg class="icon-stop" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2.4"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="picker-scrim" id="pickerScrim"></div>
+        </div>
+
+        <div class="agent-scrim" id="agentScrim" hidden></div>
+      </div>
+    </section>
+
+    <section class="page" id="page-memory">
+      <div class="settings-wrap">
+        <div class="card pad">
+          <div class="card-head">
+            <h3>长期记忆</h3>
+            <span class="tag" id="memPageCount">—</span>
+            <div class="spacer"></div>
+            <button class="link-btn" onclick="loadMemoryPage()">刷新</button>
+          </div>
+          <div class="empty-mini" style="padding:0 0 10px">
+            AI 会把值得记住的事分成三层沉淀：长期事实、发生过的往事、会话摘要；下次对话按相关度自动带上。
+          </div>
+          <div class="mem-stats" id="memStats"></div>
+          <div class="mem-tabs">
+            <button class="chip active" data-mem-tab="stream" onclick="switchMemTab('stream')">记忆流</button>
+            <button class="chip" data-mem-tab="profiles" onclick="switchMemTab('profiles')">人物档案</button>
+          </div>
+
+          <div id="memStreamPane">
+            <div class="mem-toolbar">
+              <input id="memPageSearch" placeholder="搜索记忆内容…" />
+              <select id="memLayerFilter" title="按层级筛选">
+                <option value="">全部层级</option>
+                <option value="core">长期事实</option>
+                <option value="episodic">相关往事</option>
+                <option value="session">会话摘要</option>
+              </select>
+              <select id="memKindFilter" title="按类型筛选">
+                <option value="">全部类型</option>
+                <option value="fact">事实</option>
+                <option value="preference">偏好</option>
+                <option value="event">事件</option>
+                <option value="relationship">关系</option>
+              </select>
+              <label class="mem-pin-filter"><input type="checkbox" id="memPinnedOnly" /> 只看置顶</label>
+              <button class="btn" onclick="loadMemoryPage()">搜索</button>
+            </div>
+            <div class="mem-actions">
+              <button class="btn" onclick="consolidateMemories()" title="合并重复、清理过期会话摘要、衰减长期未用记忆">整理记忆</button>
+              <button class="btn" onclick="reindexMemories()" title="用配置的 embedding 接口重建向量索引">重建索引</button>
+              <button class="btn" onclick="exportMemories()" title="导出当前筛选结果为 JSON">导出</button>
+              <button class="btn" onclick="$('#memImportFile').click()" title="从 JSON 导入记忆">导入</button>
+              <input type="file" id="memImportFile" accept=".json,application/json" hidden />
+              <button class="btn" id="btnMemMulti" title="进入多选模式，可全选并批量删除 / 标记重要 / 导出">多选</button>
+            </div>
+            <div class="wall-selbar" id="memSelBar" hidden>
+              <button type="button" class="chip" id="btnMemSelAll" title="选中当前列表的全部记忆">全选</button>
+              <button type="button" class="chip" id="btnMemSelNone">清空</button>
+              <span class="sel-count" id="memSelCount">已选 0</span>
+              <div class="spacer"></div>
+              <button type="button" class="btn" id="btnBatchMemImportance" title="把选中记忆设为重要；若全部已是重要则取消">⭐ 重要</button>
+              <button type="button" class="btn" id="btnBatchMemExport" title="把选中记忆导出为 JSON">⬇ 导出</button>
+              <button type="button" class="btn danger" id="btnBatchMemDelete" title="让 AI 忘掉选中的记忆">🗑 删除</button>
+              <button type="button" class="btn" id="btnMemSelExit">退出多选</button>
+            </div>
+            <div id="memPageList" class="mem-list"><div class="empty-mini">加载中…</div></div>
+            <div class="mem-add">
+              <input id="fPageMemContent" placeholder="手动添加一条记忆，例如：主人喜欢钓鱼" />
+              <select id="fPageMemLayer" title="记忆层级">
+                <option value="core">长期事实</option>
+                <option value="episodic">相关往事</option>
+              </select>
+              <select id="fPageMemImportance" title="重要程度">
+                <option value="2">普通</option>
+                <option value="3">重要</option>
+                <option value="1">次要</option>
+              </select>
+              <button class="btn" onclick="addPageMemory()">添加</button>
+            </div>
+          </div>
+
+          <div id="memProfilesPane" hidden>
+            <div class="empty-mini" style="padding:0 0 10px">
+              人物档案从长期事实和往事里自动汇总：关系、偏好、雷区、最近话题。没有档案时先聊几轮，或点「整理记忆」。
+            </div>
+            <div id="memProfileList" class="mem-profile-list"><div class="empty-mini">加载中…</div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="page-growth">
+      <div class="settings-wrap">
+        <div class="card pad">
+          <div class="card-head">
+            <h3>自我进化</h3>
+            <span class="tag" id="growthStateTag">未启动</span>
+            <div class="spacer"></div>
+            <button class="link-btn" onclick="loadGrowthPage()">刷新</button>
+          </div>
+          <div class="empty-mini" id="growthIntro">
+            它会在每晚回看最近发生的事，把值得留下的变化写进自我；低风险自动生效，跳变等你批准。关闭后提示词回到原样。
+          </div>
+          <div class="growth-status" id="growthStatus"></div>
+          <div class="growth-toolbar">
+            <button class="btn" id="btnGrowthEnable" onclick="toggleGrowth()">启动成长</button>
+            <button class="btn" id="btnGrowthReflect" onclick="reflectNow()">现在想想</button>
+            <button class="btn" onclick="exportGrowth()">导出</button>
+          </div>
+
+          <div class="mem-tabs growth-tabs">
+            <button class="chip active" data-growth-tab="self" onclick="switchGrowthTab('self')">自我</button>
+            <button class="chip" data-growth-tab="journal" onclick="switchGrowthTab('journal')">日记</button>
+            <button class="chip" data-growth-tab="goals" onclick="switchGrowthTab('goals')">目标</button>
+            <button class="chip" data-growth-tab="proposals" onclick="switchGrowthTab('proposals')">待批 <em id="growthPendingInline" hidden>0</em></button>
+            <button class="chip" data-growth-tab="events" onclick="switchGrowthTab('events')">时间线</button>
+          </div>
+
+          <div id="growthSelfPane" class="growth-pane active">
+            <div class="growth-summary" id="growthSummary"></div>
+            <div class="growth-toolbar">
+              <input id="growthTraitSearch" placeholder="搜索特质…" />
+              <select id="growthKindFilter">
+                <option value="">全部类型</option>
+                <option value="voice">口癖</option>
+                <option value="opinion">观点</option>
+                <option value="value">价值观</option>
+                <option value="preference">偏好</option>
+                <option value="relationship">关系</option>
+                <option value="habit">习惯</option>
+                <option value="narrative">自我叙事</option>
+                <option value="joke">内部梗</option>
+                <option value="other">其它</option>
+              </select>
+              <select id="growthStatusFilter">
+                <option value="">全部状态</option>
+                <option value="active">生效</option>
+                <option value="seed">种子</option>
+                <option value="dormant">休眠</option>
+                <option value="retired">退役</option>
+              </select>
+              <button class="btn" onclick="loadGrowthTraits()">搜索</button>
+            </div>
+            <div class="growth-add">
+              <input id="growthTraitContent" placeholder="手动加一条特质，例如：我说话喜欢先停半拍" />
+              <select id="growthTraitKind">
+                <option value="voice">口癖</option>
+                <option value="opinion">观点</option>
+                <option value="value">价值观</option>
+                <option value="preference">偏好</option>
+                <option value="relationship">关系</option>
+                <option value="habit">习惯</option>
+                <option value="narrative">自我叙事</option>
+                <option value="joke">内部梗</option>
+                <option value="other">其它</option>
+              </select>
+              <button class="btn" onclick="addGrowthTrait()">添加</button>
+            </div>
+            <div id="growthTraitList" class="growth-list"></div>
+          </div>
+
+          <div id="growthJournalPane" class="growth-pane" hidden>
+            <div id="growthJournalList" class="growth-list"></div>
+          </div>
+
+          <div id="growthGoalsPane" class="growth-pane" hidden>
+            <div class="growth-add">
+              <input id="growthGoalContent" placeholder="手动加一个目标…" />
+              <button class="btn" onclick="addGrowthGoal()">添加</button>
+            </div>
+            <div id="growthGoalList" class="growth-list"></div>
+          </div>
+
+          <div id="growthProposalsPane" class="growth-pane" hidden>
+            <div id="growthProposalList" class="growth-list"></div>
+          </div>
+
+          <div id="growthEventsPane" class="growth-pane" hidden>
+            <div id="growthEventList" class="growth-list"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="page-mood">
+      <div class="settings-wrap">
+        <div class="card pad">
+          <div class="card-head">
+            <h3>心情</h3>
+            <span class="tag" id="moodEnabledTag">—</span>
+            <div class="spacer"></div>
+            <label class="switch-row">
+              <input type="checkbox" id="moodEnabled" onchange="saveMoodEnabled(this.checked)" />
+              <span>启用心情</span>
+            </label>
+          </div>
+          <div class="tabs" id="moodTabs">
+            <button class="tab active" data-mood-tab="state">心情</button>
+            <button class="tab" data-mood-tab="slots">会话绑定</button>
+            <button class="tab" data-mood-tab="judge">判断与注入</button>
+            <button class="tab" data-mood-tab="widget">挂饰</button>
+          </div>
+
+          <div class="mood-pane active" data-mood-pane="state">
+            <div class="mood-hero">
+              <img id="moodFace" class="mood-face" alt="表情" src="/mood-assets/face-ok.png" />
+              <div class="mood-hero-text">
+                <div class="mood-big"><span id="moodValue">—</span> <span id="moodLabel"></span></div>
+                <div class="muted" id="moodReason">还没有记录</div>
+              </div>
+              <div class="spacer"></div>
+              <button class="btn btn-sm" onclick="resetMood()">重置</button>
+            </div>
+            <div id="moodDims" class="mood-dims"></div>
+            <div class="mood-sub">最近变化</div>
+            <div id="moodTimeline" class="mood-timeline"><div class="empty-mini">加载中…</div></div>
+            <div class="mood-test">
+              <input id="moodTestText" placeholder="试一句「对方」说的话…" />
+              <input id="moodTestReply" placeholder="你这一轮的回复（可空）" />
+              <button class="btn btn-sm" onclick="testMoodJudge()">试判断</button>
+            </div>
+            <pre id="moodTestOut" class="mood-test-out" hidden></pre>
+          </div>
+
+          <div class="mood-pane" data-mood-pane="slots">
+            <div class="field">
+              <span>槽位模式</span>
+              <select id="moodMode" onchange="saveMoodAccount({mode: this.value})">
+                <option value="account">按账号（全部会话共用一份）</option>
+                <option value="chat">按会话（给指定会话单独一份）</option>
+              </select>
+            </div>
+            <div class="mood-slot-add">
+              <input id="moodSlotLabel" placeholder="新槽位名字（可空）" />
+              <button class="btn btn-sm" onclick="createMoodSlot()">新建槽位</button>
+            </div>
+            <div id="moodSlots" class="mood-slots"></div>
+            <div class="mood-sub">会话绑定</div>
+            <div class="mood-bind">
+              <select id="moodBindSlot"></select>
+              <input id="moodBindChat" placeholder="会话 uid（如 acc_default:wxid_xxx）" />
+              <button class="btn btn-sm" onclick="bindMoodChat()">绑定</button>
+            </div>
+            <div id="moodBindings" class="mood-bindings"></div>
+          </div>
+
+          <div class="mood-pane" data-mood-pane="judge">
+            <div class="mood-form">
+              <label class="field"><span>自动判断</span>
+                <input type="checkbox" id="moodAutoJudge" onchange="saveMoodAccount({auto_judge: this.checked})" />
+              </label>
+              <label class="field"><span>判断模型</span>
+                <input id="moodJudgeModel" placeholder="留空跟随当前账号模型" />
+              </label>
+              <label class="field"><span>可信度门槛</span>
+                <input id="moodInjectConf" type="number" min="0" max="100" />
+              </label>
+              <label class="field"><span>显著阈值（心情）</span>
+                <input id="moodSigMood" type="number" min="1" max="10" />
+              </label>
+              <label class="field"><span>显著阈值（单项情绪）</span>
+                <input id="moodSigDim" type="number" min="1" max="10" />
+              </label>
+              <label class="field"><span>注入方式</span>
+                <select id="moodInjectMode">
+                  <option value="off">不告诉她</option>
+                  <option value="label">只说心情</option>
+                  <option value="event">说心情 + 刚才那件事</option>
+                </select>
+              </label>
+              <label class="field"><span>每日注入上限</span>
+                <input id="moodPerDay" type="number" min="0" max="100" />
+              </label>
+              <label class="field"><span>心情基线</span>
+                <input id="moodBase" type="number" min="0" max="100" />
+              </label>
+              <label class="field"><span>心情下限</span>
+                <input id="moodFloor" type="number" min="0" max="100" />
+              </label>
+              <label class="field"><span>半衰期（小时）</span>
+                <input id="moodHalf" type="number" min="1" max="168" />
+              </label>
+              <label class="field"><span>她叫什么</span>
+                <input id="moodSelfName" placeholder="留空取人设名" />
+              </label>
+              <label class="field"><span>对方叫什么</span>
+                <input id="moodOwnerName" placeholder="留空取会话名" />
+              </label>
+              <label class="field"><span>别名（逗号分隔）</span>
+                <input id="moodAliases" placeholder="宝宝,亲爱的" />
+              </label>
+            </div>
+            <button class="btn btn-primary" onclick="saveMoodJudgeForm()">保存判断与注入设置</button>
+          </div>
+
+          <div class="mood-pane" data-mood-pane="widget">
+            <p class="muted">
+              挂饰在控制台右下角、小鲸鱼上方。按住可拖动，位置会记住；面板右上角的「–」收起成小圆，
+              点形状不打开也不关闭面板。想恢复默认位置，点下面的按钮再刷新页面。
+            </p>
+            <button class="btn btn-sm" onclick="resetMoodWidget()">重置挂饰位置</button>
+            <p class="muted">
+              表情图片在 <code>vendor/dsh-feiyu-mood/assets/</code>，替换同名 PNG 即可，不用改代码。
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="page-proactive">
+      <div class="settings-wrap">
+        <div class="card pad">
+          <div class="card-head">
+            <h3>主动搭话</h3>
+            <span class="tag" id="proactiveEnabledTag">—</span>
+            <span class="tag" id="proactiveSchedulerTag">—</span>
+            <div class="spacer"></div>
+            <label class="switch-row">
+              <input type="checkbox" id="proactiveEnabled" onchange="saveProactiveEnabled(this.checked)" />
+              <span>启用主动搭话</span>
+            </label>
+          </div>
+          <p class="proactive-warn" id="proactiveWarn">
+            默认关闭。开启后 AI 会在白名单会话里真的发出微信消息；没有白名单不能启用。
+          </p>
+          <p class="muted">
+            调度器每隔约 60 秒看一眼白名单里的每个会话，按间隔掷一次骰：掷中了才写开场白并发送，
+            没掷中只做记录（连败会让下一次更容易命中）。它不看「对方说了什么」，是自己隔一段时间开口。
+          </p>
+          <div class="proactive-state" id="proactiveStates"><div class="empty-mini">加载中…</div></div>
+        </div>
+
+        <div class="card pad">
+          <div class="card-head">
+            <h3>白名单</h3>
+            <span class="muted">只有这里的会话会被主动搭话</span>
+            <div class="spacer"></div>
+          </div>
+          <div class="proactive-pick">
+            <select id="proactiveChatPick"></select>
+            <label class="switch-row">
+              <input type="checkbox" id="proactiveGroupAck" />
+              <span>我确认允许在群聊里主动开口</span>
+            </label>
+            <button class="btn btn-sm" onclick="addProactiveChat()">加入白名单</button>
+          </div>
+          <div id="proactiveWhitelist"><div class="empty-mini">加载中…</div></div>
+          <p class="muted">
+            会话列表来自当前账号，群聊必须勾上上面那个确认才能加入；移出白名单后它就不会再被主动搭话。
+            移除最后一条时开关会自动关闭——避免「开着却没人可发」的空转。
+          </p>
+        </div>
+
+        <div class="card pad">
+          <div class="card-head">
+            <h3>参数</h3>
+            <span class="muted">按当前账号保存</span>
+            <div class="spacer"></div>
+          </div>
+          <div class="mood-form">
+            <label class="field"><span>掷骰间隔（分钟）</span>
+              <input id="proactiveIntervalMin" type="number" min="1" max="1440" />
+              <em>同一会话两次掷骰的最小间隔</em>
+            </label>
+            <label class="field"><span>冷却（分钟）</span>
+              <input id="proactiveCooldownMin" type="number" min="0" max="1440" />
+              <em>上次主动开口后多久内不再掷</em>
+            </label>
+            <label class="field"><span>安静时段起（0–23）</span>
+              <input id="proactiveQuietStart" type="number" min="0" max="23" />
+              <em>含起不含止，两值相同即不安静</em>
+            </label>
+            <label class="field"><span>安静时段止（0–23）</span>
+              <input id="proactiveQuietEnd" type="number" min="0" max="23" />
+              <em>可跨午夜，如 23 → 6</em>
+            </label>
+            <label class="field"><span>账号每日上限</span>
+              <input id="proactiveDailyLimit" type="number" min="0" max="100" />
+              <em>0 = 不限；手动补一条也吃这个额度</em>
+            </label>
+            <label class="field"><span>单会话每日上限</span>
+              <input id="proactivePerChatDaily" type="number" min="0" max="100" />
+              <em>0 = 不限</em>
+            </label>
+            <label class="field"><span>峰时命中线</span>
+              <input id="proactiveHitPeak" type="number" min="0" max="100" />
+              <em>工作日 09–12、14–18；数值越高越容易开口</em>
+            </label>
+            <label class="field"><span>谷时命中线</span>
+              <input id="proactiveHitOffpeak" type="number" min="0" max="100" />
+              <em>其余时间（含周末）</em>
+            </label>
+            <label class="field"><span>「刚聊过」窗口（分钟）</span>
+              <input id="proactiveRecentMin" type="number" min="0" max="1440" />
+              <em>窗口内命中线乘以下面的系数</em>
+            </label>
+            <label class="field"><span>「刚聊过」系数</span>
+              <input id="proactiveRecentFactor" type="number" min="0" max="10" step="0.05" />
+              <em>越小越不会插话</em>
+            </label>
+            <label class="field"><span>「冷场」阈值（分钟）</span>
+              <input id="proactiveColdMin" type="number" min="0" max="10080" />
+              <em>超过它命中线乘以下面的系数</em>
+            </label>
+            <label class="field"><span>「冷场」系数</span>
+              <input id="proactiveColdFactor" type="number" min="0" max="10" step="0.1" />
+              <em>大于 1 更容易开口</em>
+            </label>
+            <label class="field"><span>没掷中加成</span>
+              <input id="proactiveMissBonus" type="number" min="0" max="100" />
+              <em>每次没掷中给下一次加多少命中线</em>
+            </label>
+            <label class="field"><span>加成上限</span>
+              <input id="proactiveBonusCap" type="number" min="0" max="100" />
+              <em>连败加成的封顶</em>
+            </label>
+            <label class="field"><span>最长字数</span>
+              <input id="proactiveMaxChars" type="number" min="20" max="1000" />
+              <em>超过它就截断后发（末尾加省略号）；判为「跳过」或空才不发</em>
+            </label>
+          </div>
+          <div class="field">
+            <span>触发文案（AI 的「心里话」，不会被发出去）</span>
+            <textarea id="proactiveTriggerText" rows="2"></textarea>
+            <em>它只告诉 AI「你为什么想开口」，提示词会要求不念出这段动机</em>
+          </div>
+          <button class="btn btn-primary" onclick="saveProactiveForm()">保存参数</button>
+        </div>
+
+        <div class="card pad">
+          <div class="card-head">
+            <h3>试一试</h3>
+            <span class="muted">只针对白名单里的会话</span>
+            <div class="spacer"></div>
+          </div>
+          <div class="proactive-pick">
+            <select id="proactiveTestPick"></select>
+            <button class="btn btn-sm" id="proactiveDryBtn" onclick="testProactive(true)">试运行（只生成，不发）</button>
+            <button class="btn btn-sm" id="proactiveSendBtn" onclick="testProactive(false)">真发一条（不占自动额度）</button>
+            <button class="btn btn-sm" id="proactiveRunBtn" onclick="runProactive()">手动补一条（走闸门、占额度）</button>
+          </div>
+          <p class="muted">
+            试运行让模型写一句开场白给你看，不发送、不记账额度；「真发一条」绕过掷骰直接发，不占自动额度，
+            但仍过闸门，发送前会再让你确认一次；「手动补一条」按自动路径记账，占今日额度。
+          </p>
+          <pre id="proactiveTestOut" class="mood-test-out" hidden></pre>
+        </div>
+
+        <div class="card pad">
+          <div class="card-head">
+            <h3>最近记录</h3>
+            <div class="spacer"></div>
+            <button class="link-btn" onclick="loadProactiveEvents()">刷新</button>
+          </div>
+          <div id="proactiveEvents"><div class="empty-mini">加载中…</div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="page-pet">
+      <div class="settings-wrap">
+        <div class="card pad">
+          <div class="card-head">
+            <h3>桌面宠物</h3>
+            <span class="tag" id="petStateTag">未开启</span>
+            <div class="spacer"></div>
+            <button class="link-btn" onclick="loadPetPage()">刷新</button>
+          </div>
+          <div class="empty-mini">
+            桌面上常驻一只小鲸鱼，显示它自己在做什么：在想、在忙、这条回出去了、发送失败、微信没连上。
+            动作只由运行状态决定，语气跟着心情走。需要装 PySide6 并先装配素材；缺哪一样都不显示宠物，
+            也不影响微信收发。
+          </div>
+          <div class="empty-mini" id="petBlocked" hidden></div>
+          <div class="growth-toolbar">
+            <button class="btn" id="petFixBtn" onclick="petInstall()" hidden>一键准备</button>
+            <button class="btn" id="btnPetEnable" onclick="togglePet()">启用桌宠</button>
+            <button class="btn" onclick="petPreview('THINKING')">预览：在想</button>
+            <button class="btn" onclick="petPreview('WORKING')">预览：在忙</button>
+            <button class="btn" onclick="petPreview('SUCCESS')">预览：回好了</button>
+            <button class="btn" onclick="petPreview('ERROR')">预览：出错</button>
+          </div>
+          <div class="field-row">
+            <label>角色大小
+              <input type="range" id="petScale" min="0.55" max="1.4" step="0.05"
+                     onchange="savePetConfig({scale: this.value})">
+            </label>
+            <label>气泡大小
+              <input type="range" id="petBubbleScale" min="0.8" max="1.2" step="0.05"
+                     onchange="savePetConfig({bubbleScale: this.value})">
+            </label>
+          </div>
+          <div class="field-row">
+            <label>待机节奏
+              <select id="petActivity" onchange="savePetConfig({activityLevel: this.value})">
+                <option value="auto">跟着心情</option>
+                <option value="quiet">安静</option>
+                <option value="normal">标准</option>
+                <option value="lively">活泼</option>
+              </select>
+            </label>
+            <label>气泡显示
+              <select id="petBubbleMode" onchange="savePetConfig({bubbleMode: this.value})">
+                <option value="always">常驻</option>
+                <option value="hidden">隐藏</option>
+                <option value="states">仅指定状态</option>
+              </select>
+            </label>
+          </div>
+          <div class="field-row">
+            <label><input type="checkbox" id="petReducedMotion"
+                          onchange="savePetConfig({reducedMotion: this.checked})">减少动态</label>
+            <label><input type="checkbox" id="petSound"
+                          onchange="savePetConfig({soundEnabled: this.checked})">提示音</label>
+            <label><input type="checkbox" id="petShowChat"
+                          onchange="savePetConfig({showChatName: this.checked})">气泡带会话名</label>
+          </div>
+          <div class="mem-tabs growth-tabs">
+            <button class="chip" onclick="savePetConfig({bubbleStates: ['SUCCESS','ERROR']})">
+              仅成功与出错时显示气泡
+            </button>
+            <button class="chip" onclick="savePetConfig({bubbleStates: []})">气泡不带任何状态</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="page-moments">
+      <div class="settings-wrap">
+        <div class="card pad">
+          <div class="card-head">
+            <h3>互动通知</h3>
+            <span class="tag" id="momentsSyncTag">—</span>
+            <div class="spacer"></div>
+            <button class="link-btn" onclick="syncMoments()">立即同步</button>
+          </div>
+          <div class="empty-mini" style="padding:0 0 10px">
+            朋友圈由后台定期从微信本地库同步（收动态、收「谁赞/评了我」）。点「立即同步」会先打开微信朋友圈页让客户端拉最新动态，再切回聊天页（期间别动鼠标键盘）；点赞和评论也会短暂操作微信窗口；发表朋友圈暂不支持（微信 4.x 限制）。
+          </div>
+          <div id="momentInterList" class="moment-inter-list"><div class="empty-mini">加载中…</div></div>
+        </div>
+        <div class="card pad">
+          <div class="card-head">
+            <h3>好友动态</h3>
+            <span class="tag" id="momentsCountTag">—</span>
+            <div class="spacer"></div>
+            <input id="momentsSearch" placeholder="搜索正文或昵称…" />
+            <button class="btn" onclick="loadMomentsPage()">搜索</button>
+          </div>
+          <div id="momentsList" class="moment-list"><div class="empty-mini">加载中…</div></div>
+          <div class="moment-more">
+            <button class="link-btn" id="momentsMoreBtn" onclick="loadMoreMoments()" hidden>加载更多</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="page-emojis">
+      <div class="wall-toolbar">
+        <input id="wallSearch" placeholder="搜索标签或描述…">
+        <span class="wall-stats" id="wallStats"></span>
+        <button class="btn" id="btnImportQQ" title="扫描本机 QQ 缓存目录（Ori 原图）导入表情">从QQ缓存导入</button>
+        <button class="btn" id="btnImportEmoji" title="导入 zip 压缩包或一批图片：zip 按清单还原标签，散图可统一打标">导入表情包</button>
+        <button class="btn" id="btnExportAll" title="把当前账号全部表情导出为 zip（含标签清单 manifest.json）">导出全部</button>
+        <button class="btn" id="btnRetagUntagged" title="给所有未打标的表情并发 AI 打标；非表情包照片会被自动拒收，随时可点停止">AI打标未打标</button>
+        <button class="btn" id="btnConsolidateTags" title="让 AI 把同义/近义标签归并成规范写法并重写库里标签">整理标签</button>
+        <button class="btn" id="btnWallMulti" title="进入多选模式，可全选并批量删除 / AI 打标 / 导出">多选</button>
+        <input type="file" id="emojiImportFile" accept=".zip,image/png,image/jpeg,image/gif,image/webp" multiple hidden>
+      </div>
+      <div class="wall-selbar" id="wallSelBar" hidden>
+        <button type="button" class="chip" id="btnSelAll" title="选中当前筛选出的全部表情">全选</button>
+        <button type="button" class="chip" id="btnSelNone">清空</button>
+        <span class="sel-count" id="wallSelCount">已选 0</span>
+        <div class="spacer"></div>
+        <button type="button" class="btn" id="btnBatchLock" title="锁定选中的表情：锁定后禁改标签、禁 AI 重打标、禁删除">🔒 锁定</button>
+        <button type="button" class="btn" id="btnBatchRetag" title="对选中表情逐个 AI 打标（覆盖已有标签）">🔄 AI打标</button>
+        <button type="button" class="btn" id="btnBatchZip" title="把选中表情导出为 zip（含标签清单 manifest.json）">⬇ 导出选中</button>
+        <button type="button" class="btn danger" id="btnBatchDelete" title="删除选中的表情">🗑 删除</button>
+        <button type="button" class="btn" id="btnSelExit">退出多选</button>
+      </div>
+      <div class="wall-chips" id="wallChips"></div>
+      <div class="wall-grid" id="wallGrid"></div>
+      <div class="wall-more" id="wallMore" hidden>
+        <button class="btn" id="btnWallMore">加载更多</button>
+      </div>
+      <aside class="wall-drawer" id="wallDrawer" hidden></aside>
+    </section>
+
+    <section class="page" id="page-capabilities">
+      <div class="settings-wrap">
+        <div class="card pad">
+          <div class="card-head">
+            <h3>能力总览</h3>
+            <span class="tag" id="capTag">—</span>
+            <div class="spacer"></div>
+            <button class="btn" onclick="reloadCapabilities()">重新加载</button>
+          </div>
+          <div class="empty-mini" style="padding:0 0 10px">
+            技能只读；插件和 MCP 默认只在控制台可用。自动回复要同时打开总开关，并在条目里写 <code>auto_reply: true</code>。
+          </div>
+          <div class="switch-row">
+            <div><strong>启用能力系统</strong><em>关闭后不扫描技能/插件，也不连接 MCP；下次启动生效</em></div>
+            <label class="switch"><input type="checkbox" id="capEnabled" /><span class="slider"></span></label>
+          </div>
+          <div class="switch-row">
+            <div><strong>控制台可用</strong><em>控制台智能体可以调用插件和 MCP 工具</em></div>
+            <label class="switch"><input type="checkbox" id="capConsole" /><span class="slider"></span></label>
+          </div>
+          <div class="switch-row">
+            <div><strong>自动回复可用</strong><em>总开关；只有条目自己写了 auto_reply=true 的插件/MCP 才会进自动回复</em></div>
+            <label class="switch"><input type="checkbox" id="capAuto" /><span class="slider"></span></label>
+          </div>
+          <div class="switch-row">
+            <div><strong>技能写进提示词</strong><em>只列名字和描述，正文由模型按需调用 load_skill；技能很多时可关掉</em></div>
+            <label class="switch"><input type="checkbox" id="capSkillsPrompt" /><span class="slider"></span></label>
+          </div>
+          <div class="cap-stats" id="capStats"></div>
+          <div id="capTools" class="cap-tools"></div>
+        </div>
+
+        <div class="card pad">
+          <div class="card-head">
+            <h3>MCP 服务器</h3>
+            <span class="tag" id="capMcpCount">—</span>
+            <div class="spacer"></div>
+            <button class="link-btn" onclick="loadCapabilitiesPage()">刷新</button>
+          </div>
+          <div id="capMcpList" class="cap-list"><div class="empty-mini">加载中…</div></div>
+          <div class="cap-editor">
+            <div class="card-head">
+              <h3>MCP 配置</h3>
+              <span class="tag" id="capMcpPath">—</span>
+              <div class="spacer"></div>
+              <button class="btn" onclick="saveMcpConfig()">保存并重载</button>
+            </div>
+            <textarea id="capMcpConfig" spellcheck="false" placeholder='{"mcpServers": {"filesystem": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem", "D:/data"]}}}'></textarea>
+          </div>
+        </div>
+
+        <div class="card pad" id="biliCard">
+          <div class="card-head">
+            <h3>B 站（只读）</h3>
+            <span class="tag" id="biliTag">—</span>
+            <div class="spacer"></div>
+            <button class="btn" id="biliSetupBtn" onclick="biliSetup()">安装 / 修复</button>
+            <button class="link-btn" onclick="loadBiliCard()">刷新</button>
+          </div>
+          <div class="empty-mini" id="biliHint">B 站工具默认关闭。安装运行环境并扫码登录后，才可用只读工具与巡逻。</div>
+          <div id="biliBody" hidden>
+            <div class="cap-stats" id="biliStats"></div>
+            <div class="switch-row">
+              <div><strong>启用 B 站只读工具</strong><em>只读搜索/字幕/评论/热门；发布类工具不注册</em></div>
+              <label class="switch"><input type="checkbox" id="biliEnabled" onchange="saveBiliEnabled(this.checked)" /><span class="slider"></span></label>
+            </div>
+            <div id="biliLoginBox" class="cap-list"></div>
+            <div class="field"><label>巡逻关键词 / 方向</label><input id="biliKeywords" placeholder="留空 = 让模型按热门挑" /></div>
+            <div class="field"><label>巡逻间隔（分钟）</label><input id="biliInterval" type="number" min="5" /></div>
+            <div class="field"><label>每天最多自动刷几轮</label><input id="biliDaily" type="number" min="0" /></div>
+            <div class="field"><label>每轮最多挑几条</label><input id="biliPerScan" type="number" min="1" max="10" /></div>
+            <div class="field"><label>投递</label>
+              <select id="biliDelivery">
+                <option value="console">只写控制台</option>
+                <option value="wechat">发到微信会话</option>
+                <option value="both">两边都要</option>
+              </select>
+            </div>
+            <div class="field"><label>目标会话</label><select id="biliTarget"></select></div>
+            <div class="switch-row">
+              <div><strong>启用自动巡逻</strong><em>默认关；开启后按间隔自动跑</em></div>
+              <label class="switch"><input type="checkbox" id="biliPatrolOn" /><span class="slider"></span></label>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+              <button class="btn" onclick="saveBiliPatrol()">保存巡逻设置</button>
+              <button class="link-btn" onclick="runBiliPatrol()">现在跑一轮</button>
+              <button class="link-btn" onclick="openBiliPatrolLog()">巡逻日志</button>
+            </div>
+            <div id="biliRuns" class="cap-list"></div>
+          </div>
+        </div>
+
+        <div class="card pad">
+          <div class="card-head"><h3>技能 SKILL.md</h3><span class="tag" id="capSkillCount">—</span></div>
+          <div id="capSkillList" class="cap-list"><div class="empty-mini">加载中…</div></div>
+          <pre id="capSkillViewer" class="cap-viewer" hidden></pre>
+        </div>
+
+        <div class="card pad">
+          <div class="card-head"><h3>插件 plugin.json</h3><span class="tag" id="capPluginCount">—</span></div>
+          <div id="capPluginList" class="cap-list"><div class="empty-mini">加载中…</div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="page-settings">
+      <div class="settings-wrap">
+        <div class="card pad">
+          <div class="card-head"><h3>模型</h3><span class="tag" id="modelTag">未配置</span></div>
+          <div class="field">
+            <span>模型配置</span>
+            <div class="profile-chips" id="modelProfiles"></div>
+            <em id="fProfileHint">点一档即用这一档；地址、模型名与 API Key 都跟着这一档走</em>
+          </div>
+          <div class="form-grid">
+            <label class="field">
+              <span>Base URL</span>
+              <input id="fBaseUrl" placeholder="https://api.deepseek.com" />
+              <em>兼容 OpenAI 协议的服务都可以，如通义、Kimi、本地 vLLM</em>
+            </label>
+            <label class="field">
+              <span>API Key</span>
+              <input id="fApiKey" type="password" placeholder="sk-…" autocomplete="off" />
+              <em id="fApiKeyHint">只写入项目根 .env，不进 data/config.json</em>
+            </label>
+            <label class="field">
+              <span>模型名</span>
+              <input id="fModel" placeholder="deepseek-chat" />
+              <em id="fModelHint">这一档实际发给服务商的模型名，可自行改</em>
+            </label>
+            <label class="field">
+              <span>温度</span>
+              <input id="fTemp" type="number" step="0.1" min="0" max="2" />
+              <em>越高越活泼，客服场景建议 0.3-0.7</em>
+            </label>
+          </div>
+          <div class="switch-row">
+            <div><strong>识图（图片输入）</strong><em>当前模型需支持 OpenAI 图片消息格式；关闭时图片只显示占位</em></div>
+            <label class="switch"><input type="checkbox" id="fVisionEnabled" /><span class="slider"></span></label>
+          </div>
+          <div class="switch-row">
+            <div><strong>联网能力（搜索 / 抓取 / 下载）</strong><em>开启后智能体可搜索网页、读取正文、下载文件到 data/downloads</em></div>
+            <label class="switch"><input type="checkbox" id="fWebEnabled" /><span class="slider"></span></label>
+          </div>
+          <div class="switch-row">
+            <div><strong>长期记忆</strong><em>聊天后自动提取值得记住的事，下次对话按相关度带上；每个账号的记忆相互独立</em></div>
+            <label class="switch"><input type="checkbox" id="fMemoryEnabled" /><span class="slider"></span></label>
+          </div>
+          <div class="switch-row">
+            <div><strong>人物档案</strong><em>从长期事实和往事里自动汇总关系、偏好、雷区、最近话题；关掉后只注入原始记忆</em></div>
+            <label class="switch"><input type="checkbox" id="fMemoryProfile" /><span class="slider"></span></label>
+          </div>
+          <div class="form-grid">
+            <label class="field">
+              <span>记忆注入预算（字）</span>
+              <input id="fMemoryContextChars" type="number" min="200" max="8000" step="100" />
+              <em>每次回复最多带多少字记忆进提示词，超出按相关度截断</em>
+            </label>
+            <label class="field">
+              <span>最多注入条数</span>
+              <input id="fMemoryMaxItems" type="number" min="4" max="80" />
+              <em>置顶和长期事实优先，其余按相关度补</em>
+            </label>
+            <label class="field">
+              <span>压缩阈值（条）</span>
+              <input id="fMemoryCompressAfter" type="number" min="8" max="200" />
+              <em>会话超过这么多条时，把较早的对话压成一条 7 天有效的摘要</em>
+            </label>
+          </div>
+          <div class="switch-row">
+            <div><strong>语义检索（embedding）</strong><em>可选：配置 OpenAI 兼容的 /embeddings 接口，按语义相似度召回；不配也能用关键词检索。密钥放 .env 的 EMBEDDING_API_KEY（或下面自定义变量名）</em></div>
+            <label class="switch"><input type="checkbox" id="fEmbeddingEnabled" /><span class="slider"></span></label>
+          </div>
+          <div class="form-grid">
+            <label class="field">
+              <span>Embedding Base URL</span>
+              <input id="fEmbeddingBaseUrl" placeholder="https://api.openai.com/v1" />
+              <em>自动在末尾拼 /embeddings；也可以直接填完整地址</em>
+            </label>
+            <label class="field">
+              <span>Embedding 模型</span>
+              <input id="fEmbeddingModel" placeholder="text-embedding-3-small" />
+              <em>要和你的服务商模型名一致</em>
+            </label>
+            <label class="field">
+              <span>密钥环境变量</span>
+              <input id="fEmbeddingKeyEnv" placeholder="EMBEDDING_API_KEY" />
+              <em>只读环境变量，不写进 config.json</em>
+            </label>
+          </div>
+          <div class="switch-row">
+            <div><strong>回复必带表情包</strong><em>每次自动回复至少配一个表情包，AI 按场景从表情库自选；模型忘带时自动补发一个</em></div>
+            <label class="switch"><input type="checkbox" id="fEmojiWithReply" /><span class="slider"></span></label>
+          </div>
+          <div class="switch-row">
+            <div><strong>添加聊天中的表情包</strong><em>聊天里出现的表情包自动收进表情库（对方发的、自己发的、群聊和合并转发里的都算）；关闭后不再自动收集，手动收藏和导入不受影响</em></div>
+            <label class="switch"><input type="checkbox" id="fEmojiAutoCollect" /><span class="slider"></span></label>
+          </div>
+          <div class="switch-row">
+            <div><strong>仅 AI 娘表情包</strong><em>维护 AI 娘世界观：只允许发送 tags 里带图鉴角色名（大肥鱼、小肥鱼、Claude娘 等）的表情，杂梗图自动被过滤；与串子模式同开时，串子站入库的表情优先，且不受角色名标签限制。</em></div>
+            <label class="switch"><input type="checkbox" id="fWikiEmojiOnly" /><span class="slider"></span></label>
+          </div>
+          <div class="switch-row">
+            <div><strong>串子模式</strong><em>回复像串子：默认每轮找机会串，会高级黑（捧杀/假中立/拉踩/阴阳怪气），只对准观点/梗，不对准人。正经/情绪/隐私/金钱场景收梗，只配安慰/倾听/正经向的图，不发串子图。可与「仅 AI 娘表情包」同开，库内「串子站」图优先且不受角色名限制。秒回时正文先发，台词不参与正文；开着「回复必带表情包」时文字后自动补图，关闭时可按需发图。</em></div>
+            <label class="switch"><input type="checkbox" id="fChuanziMode" /><span class="slider"></span></label>
+          </div>
+          <div class="switch-row">
+            <div><strong>串子站表情包</strong><em>串子模式下允许 AI 联网查 searchanythingfun 台词库并入库截图（每轮最多 1 次、只入库 1 张；配额不足或 429 自动回落本地）。默认关闭：不联网查站、不新增站内图，已入库的「串子站」表情照常检索和发送。</em></div>
+            <label class="switch"><input type="checkbox" id="fChuanziSiteEmoji" /><span class="slider"></span></label>
+          </div>
+          <div class="switch-row">
+            <div><strong>跨对话沟通</strong><em>允许 AI 给当前会话以外的人发消息：好友要求带话/转告时真的发到指定的人，也能在你和其他人聊天时插一句话。默认开启，发现异常先关掉</em></div>
+            <label class="switch"><input type="checkbox" id="fCrossEnabled" /><span class="slider"></span></label>
+          </div>
+          <div class="switch-row">
+            <div><strong>允许转告 / 代发</strong><em>聊天里被明确点名收件人时，AI 可以代你把消息发到对方指定的微信联系人/群，并在当前会话回一句确认</em></div>
+            <label class="switch"><input type="checkbox" id="fCrossRelay" /><span class="slider"></span></label>
+          </div>
+          <div class="switch-row">
+            <div><strong>允许主动串门</strong><em>号主本人在其他会话聊天时，AI 可以自主决定去那个会话补一句话；同一会话有冷却，会话处于人工接管暂停时不会串门（把设置里的暂停设为 0 才能随聊随串）</em></div>
+            <label class="switch"><input type="checkbox" id="fCrossVisit" /><span class="slider"></span></label>
+          </div>
+          <div class="form-grid">
+            <label class="field">
+              <span>每日跨对话上限（条）</span>
+              <input id="fCrossDaily" type="number" min="0" max="500" />
+              <em>转告 + 串门合计；0 表示不限制</em>
+            </label>
+            <label class="field">
+              <span>串门冷却（分钟）</span>
+              <input id="fCrossVisitGap" type="number" min="0" max="1440" />
+              <em>同一个会话两次主动串门尝试的最小间隔</em>
+            </label>
+          </div>
+          <label class="field">
+            <span>人设 / 系统提示词（全局默认）</span>
+            <textarea id="fPrompt" rows="4"></textarea>
+            <em>各账号可在下方「账号与通道」里单独覆盖自己的人设；可保存到「人格预设」随时切换</em>
+          </label>
+          <div class="form-grid">
+            <label class="field">
+              <span>人格名（全局默认）</span>
+              <input id="fPersonaName" placeholder="例如：Deep肥鱼" />
+              <em>AI 的人格称呼，随人设一起注入提示词，各账号可单独覆盖</em>
+            </label>
+          </div>
+          <div class="form-actions">
+            <button class="btn" id="btnTestAi">测试连接</button>
+            <span class="test-result" id="testResult"></span>
+            <div class="spacer"></div>
+            <button class="btn btn-primary" onclick="saveSettings()">保存设置</button>
+          </div>
+        </div>
+
+        <div class="card pad">
+          <div class="card-head"><h3>人格预设</h3><span class="tag" id="personaTag">0 份</span></div>
+          <div class="empty-mini">把调好的人设保存成独立的人格文件（data/personas/ 下的 json，可直接编辑备份），下拉选择后一键应用到全局默认人设，或填入下方账号的专属人设。</div>
+          <div class="preset-row">
+            <select id="fPersonaPreset"><option value="">— 选择已保存的人格 —</option></select>
+            <button class="btn" id="btnPresetGlobal">应用到全局</button>
+            <button class="btn" id="btnPresetAccount">填入当前账号</button>
+            <button class="btn btn-danger" id="btnPresetDelete">删除</button>
+          </div>
+          <div class="preset-row">
+            <button class="btn" id="btnPresetSaveGlobal">把当前全局人设存为预设</button>
+            <button class="btn" id="btnPresetSaveAccount">把当前账号人设存为预设</button>
+            <button class="btn" id="btnSyncWikiPersonas" title="从 ai-moe-wiki 图集的立绘三子目录生成/更新全体 AI 娘人设；用户自建的同名预设不会被覆盖">从图集更新 AI 娘预设</button>
+          </div>
+        </div>
+
+        <div class="card pad">
+          <div class="card-head"><h3>自动回复策略</h3><span class="tag" id="autoTag">—</span></div>
+          <div class="switch-row">
+            <div><strong>启用自动回复</strong><em>关闭后仅同步消息，不自动回复</em></div>
+            <label class="switch"><input type="checkbox" id="fAutoEnabled" /><span class="slider"></span></label>
+          </div>
+          <div class="switch-row">
+            <div><strong>默认全 AI 接管</strong><em>新出现的会话自动开启 AI 自动回复，不用逐个手动打开；已有会话的开关不受影响，可回会话页批量设置</em></div>
+            <label class="switch"><input type="checkbox" id="fDefaultAi" /><span class="slider"></span></label>
+          </div>
+          <div class="switch-row">
+            <div><strong>群里必须 @ 我才回复</strong><em>按每个账号的昵称判断 @</em></div>
+            <label class="switch"><input type="checkbox" id="fGroupAt" /><span class="slider"></span></label>
+          </div>
+          <div class="switch-row">
+            <div><strong>表情包自动回复</strong><em>对方发表情时由 AI 自行判断要不要接话；关闭则直接忽略表情</em></div>
+            <label class="switch"><input type="checkbox" id="fEmojiReply" /><span class="slider"></span></label>
+          </div>
+          <div class="switch-row">
+            <div><strong>被拍一拍时回复</strong><em>识别「谁拍了拍谁」；群里只回应拍自己的，关闭后只记录不回复</em></div>
+            <label class="switch"><input type="checkbox" id="fPatReply" /><span class="slider"></span></label>
+          </div>
+          <div class="switch-row">
+            <div><strong>秒回</strong><em>收到消息立刻回复，不再等聚拢窗口；对方连发的表情包将作为下一轮上下文</em></div>
+            <label class="switch"><input type="checkbox" id="fInstantReply" /><span class="slider"></span></label>
+          </div>
+          <div class="switch-row">
+            <div><strong>仅白名单会话</strong><em>只回复指定的人 / 群</em></div>
+            <label class="switch"><input type="checkbox" id="fOnlyWl" /><span class="slider"></span></label>
+          </div>
+          <div class="form-grid">
+            <label class="field">
+              <span>白名单（每行一个名称）</span>
+              <textarea id="fWhitelist" rows="3" placeholder="林晓&#10;产品研发群"></textarea>
+            </label>
+            <label class="field">
+              <span>黑名单（每行一个名称）</span>
+              <textarea id="fBlacklist" rows="3" placeholder="某些不想回的群"></textarea>
+            </label>
+            <label class="field">
+              <span>最短回复间隔（秒）</span>
+              <input id="fInterval" type="number" min="0" />
+            </label>
+            <label class="field">
+              <span>每日回复上限</span>
+              <input id="fDaily" type="number" min="0" />
+            </label>
+            <label class="field">
+              <span>人工接管暂停（分钟）</span>
+              <input id="fTakeover" type="number" min="0" />
+              <em>你在手机上亲自回复后，AI 自动退让</em>
+            </label>
+            <label class="field">
+              <span>回复前缀（可空）</span>
+              <input id="fPrefix" placeholder="例如：[AI]" />
+            </label>
+            <label class="field">
+              <span>回复超时（秒，0 = 不限制）</span>
+              <input id="fReplyTimeout" type="number" min="0" />
+              <em>到点还没回就先把已有内容 / 兜底话发出去</em>
+            </label>
+            <label class="field">
+              <span>超时兜底话（可空）</span>
+              <input id="fTimeoutFallback" placeholder="稍等，我想想怎么回你" />
+              <em>超时且 AI 一个字都没产出时发这句</em>
+            </label>
+          </div>
+          <div class="switch-row">
+            <div><strong>一条回复拆成多条发送</strong><em>AI 可用 --- 分隔把回复拆成最多 3 条短消息，逐条发出更像真人</em></div>
+            <label class="switch"><input type="checkbox" id="fSplitReply" /><span class="slider"></span></label>
+          </div>
+          <div class="form-actions">
+            <div class="spacer"></div>
+            <button class="btn btn-primary" onclick="saveSettings()">保存设置</button>
+          </div>
+        </div>
+
+        <div class="card pad">
+          <div class="card-head">
+            <h3>账号与通道</h3>
+            <button class="link-btn" id="btnAddAccount">＋ 新增账号</button>
+          </div>
+          <div class="acc-tabs" id="accTabs"></div>
+
+          <div class="form-grid" id="accForm">
+            <label class="field">
+              <span>账号名称</span>
+              <input id="aName" placeholder="例如：工作号" />
+              <em>仅用于控制台区分，不会同步到微信</em>
+            </label>
+            <label class="field">
+              <span>微信昵称（群 @ 检测用）</span>
+              <input id="aNickname" placeholder="例如：Deep肥鱼" />
+              <em>群里有人 @ 这个昵称时才会自动回复</em>
+            </label>
+            <label class="field">
+              <span>人格名（可空 = 用全局）</span>
+              <input id="aPersonaName" placeholder="例如：大肥鱼" />
+              <em>这个账号的独立人格称呼，留空则用模型设置里的人设</em>
+            </label>
+            <label class="field" style="grid-column: 1 / -1">
+              <span>该账号专属人设（可空 = 用全局）</span>
+              <textarea id="aPersonaPrompt" rows="3" placeholder="这个账号特有的性格、身份、说话方式…"></textarea>
+              <em>每个微信号可以是不同的人格，各自有各自的记忆</em>
+            </label>
+            <label class="field">
+              <span>驱动</span>
+              <select id="aDriver">
+                <option value="auto">自动选择（推荐）</option>
+                <option value="wcferry">WeChatFerry · 本地 Hook（全权限）</option>
+                <option value="weixin4">微信 4.x · 数据库读取（后台收消息）</option>
+                <option value="webhook">Webhook 网关</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>启用该账号</span>
+              <select id="aEnabled">
+                <option value="1">启用</option>
+                <option value="0">停用</option>
+              </select>
+            </label>
+            <label class="field" data-driver="wcferry">
+              <span>Hook 主机</span>
+              <input id="aHost" placeholder="127.0.0.1" />
+              <em>多开时每个客户端对应一个注入端口</em>
+            </label>
+            <label class="field" data-driver="wcferry">
+              <span>Hook 端口</span>
+              <input id="aPort" type="number" placeholder="10086" />
+              <em>不同实例用不同端口，避免串号</em>
+            </label>
+            <label class="field" data-driver="weixin4">
+              <span>微信 4.x 账号</span>
+              <select id="aWx4Dir"><option value="">自动选择（按最近活跃）</option></select>
+              <em id="aWx4Hint">发送走前台窗口自动化</em>
+            </label>
+            <label class="field" data-driver="webhook">
+              <span>Webhook 出站地址</span>
+              <input id="aCallback" placeholder="https://your-gateway/send" />
+            </label>
+            <label class="field" data-driver="webhook">
+              <span>Webhook Token</span>
+              <input id="aToken" placeholder="用于校验入站请求、区分账号" />
+            </label>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-danger" id="btnDeleteAccount">删除账号</button>
+            <div class="spacer"></div>
+            <button class="btn btn-primary" id="btnSaveAccount">保存账号</button>
+          </div>
+
+          <div class="mem-box">
+            <div class="card-head" style="margin:16px 0 8px">
+              <h3 style="font-size:13px">该账号的长期记忆</h3>
+              <button class="link-btn" onclick="loadMemories()">刷新</button>
+            </div>
+            <div class="empty-mini" style="padding:0 0 8px">AI 聊天中自动沉淀的会记在这里，并注入它的提示词；可手动增删改。</div>
+            <div id="memList" class="mem-list"><div class="empty-mini">—</div></div>
+            <div class="mem-add">
+              <input id="fMemContent" placeholder="手动添加一条记忆，例如：主人喜欢钓鱼" />
+              <button class="btn" onclick="addMemory()">添加</button>
+            </div>
+          </div>
+
+          <div class="instance-box">
+            <div class="card-head" style="margin:16px 0 8px">
+              <h3 style="font-size:13px">检测到的微信客户端</h3>
+              <button class="link-btn" onclick="loadDiagnose()">重新检测</button>
+            </div>
+            <div id="instanceList" class="instance-list"><div class="empty-mini">检测中…</div></div>
+          </div>
+
+          <div class="diag-list" id="diagList"></div>
+
+          <label class="field" style="margin-top:16px">
+            <span>控制台访问令牌（可选）</span>
+            <input id="fAccessToken" placeholder="保护 127.0.0.1:8765" />
+          </label>
+        </div>
+
+        <div class="card pad">
+          <div class="card-head"><h3>软件更新</h3><span class="tag" id="updateTag">—</span></div>
+          <div class="update-row">
+            <div class="update-info">
+              <div class="update-main" id="updateMain">当前版本 —</div>
+              <div class="update-sub" id="updateSub">与 Gitee 仓库的 master 分支对比，检测是否有新版本</div>
+            </div>
+            <button class="btn btn-check-update">检查更新</button>
+          </div>
+          <div class="update-actions" id="updateActions" hidden>
+            <a class="link-btn" id="updateRepoLink" href="#" target="_blank" rel="noopener">打开仓库查看更新</a>
+          </div>
+        </div>
+
+        <div class="card pad risk-card">
+          <div class="card-head"><h3>使用边界</h3></div>
+          <ul class="risk-list">
+            <li><strong>账号风险</strong>：个人微信自动化不符合《微信个人账号使用规范》，存在被限制或封禁的可能，建议用小号先验证。</li>
+            <li><strong>版本限制</strong>：本地 Hook 仅支持微信 PC 3.9.x；4.x 收消息走数据库解密，发送走前台窗口自动化（会短暂占用前台）。</li>
+            <li><strong>能力边界</strong>：朋友圈、支付、小程序、语音视频通话不在 Hook 能力范围内。</li>
+            <li><strong>数据</strong>：所有消息与配置只存在本机 <code>data/</code> 目录，不同账号的数据按账号隔离。</li>
+            <li><strong>协议</strong>：使用本软件即表示同意本项目的<button class="link-btn" onclick="go('eula')">《最终用户许可协议》</button>；英文译本仅供参考，以中文版为准。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="page-usage">
+      <div class="card pad eula-card usage-card">
+        <div class="eula-toolbar">
+          <span class="eula-note" id="usageUpdated">加载中…</span>
+          <div class="spacer"></div>
+          <button class="btn btn-sm" onclick="loadUsagePage()">刷新</button>
+        </div>
+        <article class="eula-doc usage-doc" id="usageDoc"><div class="empty-mini">加载中…</div></article>
+      </div>
+    </section>
+
+    <section class="page" id="page-eula">
+      <div class="card pad eula-card">
+        <div class="eula-toolbar">
+          <div class="eula-tabs">
+            <button class="btn btn-sm eula-tab on" data-eula-lang="zh">中文</button>
+            <button class="btn btn-sm eula-tab" data-eula-lang="en">English</button>
+          </div>
+          <span class="eula-note" id="eulaNote" hidden>英文译本仅供参考，以中文版本为准。</span>
+          <a class="link-btn" id="eulaOpen" href="/eula" target="_blank" rel="noopener">在新窗口打开</a>
+        </div>
+        <article class="eula-doc" id="eulaDoc"><div class="empty-mini">加载中…</div></article>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="bili-log-mask" id="biliSetupMask" hidden>
+  <div class="bili-log-card" role="dialog" aria-modal="true" aria-labelledby="biliSetupTitle">
+    <div class="bili-log-head">
+      <div class="bili-log-title">
+        <strong id="biliSetupTitle">B 站运行环境安装</strong>
+        <span id="biliSetupStatus" class="bili-log-status">准备中…</span>
+      </div>
+      <div class="spacer"></div>
+      <button class="link-btn" onclick="copyBiliSetupLog()">复制日志</button>
+      <button class="link-btn" onclick="closeBiliSetupTerminal()">关闭</button>
+    </div>
+    <pre id="biliSetupTerm" class="bili-terminal" aria-live="polite"></pre>
+    <div class="bili-log-foot">日志来自 <code>data/bili/setup.log</code>；安装失败时这里保留最后输出。</div>
+  </div>
+</div>
+<div class="bili-log-mask" id="biliPatrolMask" hidden>
+  <div class="bili-log-card" role="dialog" aria-modal="true" aria-labelledby="biliPatrolTitle">
+    <div class="bili-log-head">
+      <div class="bili-log-title">
+        <strong id="biliPatrolTitle">B 站巡逻</strong>
+        <span id="biliPatrolStatus" class="bili-log-status">准备中…</span>
+      </div>
+      <div class="spacer"></div>
+      <button class="link-btn" onclick="copyBiliPatrolLog()">复制日志</button>
+      <button class="link-btn" onclick="closeBiliPatrolLog()">关闭</button>
+    </div>
+    <div id="biliPatrolTerm" class="bili-terminal" aria-live="polite"></div>
+    <div class="bili-log-foot">思考与工具调用实时输出；每轮保存在 <code>data/bili/patrol/logs/&lt;run_id&gt;.log</code>。</div>
+  </div>
+</div>
+
+<div class="bili-log-mask" id="petInstallMask" hidden>
+  <div class="bili-log-card" role="dialog" aria-modal="true" aria-labelledby="petInstallTitle">
+    <div class="bili-log-head">
+      <div class="bili-log-title">
+        <strong id="petInstallTitle">桌宠一键准备</strong>
+        <span id="petInstallStatus" class="bili-log-status">准备中…</span>
+      </div>
+      <div class="spacer"></div>
+      <button class="link-btn" onclick="copyPetInstallLog()">复制日志</button>
+      <button class="link-btn" onclick="closePetInstallTerminal()">关闭</button>
+    </div>
+    <pre id="petInstallTerm" class="bili-terminal" aria-live="polite"></pre>
+    <div class="bili-log-foot">日志来自 <code>data/pet/install.log</code>；失败时这里保留最后输出，可复制后反馈。</div>
+  </div>
+</div>
+<div class="shutdown-mask" id="shutdownMask" hidden>
+  <div class="shutdown-card">
+    <h3>服务已关闭</h3>
+    <p>数据已保存，后端进程已经退出。重新运行 run.bat 可以再次启动。</p>
+  </div>
+</div>
+<div class="toast-wrap" id="toastWrap"></div>
+<script src="/static/app.js"></script>
+<!-- dsh-whale 余额小鲸鱼挂件（上游原样文件，经 main.py 的 /dsh-whale/* 宿主接口驱动） -->
+<script src="/dsh-whale/widget.js" defer></script>
+<!-- 心情挂饰（基于 dsh-feiyu-mood 0.7.6，MIT，素材见 vendor/dsh-feiyu-mood/PROVENANCE.md）
+     脚本走 /static、图片走 /mood-assets，避开 /api 的令牌中间件 -->
+<script src="/static/mood-widget.js" defer></script>
+</body>
+</html>

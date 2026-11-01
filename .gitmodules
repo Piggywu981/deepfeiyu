@@ -1,0 +1,8 @@
+[submodule "vendor/dsh-whale-widget"]
+	path = vendor/dsh-whale-widget
+	url = https://github.com/MeteorNOX/DeepSeek-Balance-Whale-Widget
+	shallow = true
+[submodule "vendor/dsh-feiyu-pet"]
+	path = vendor/dsh-feiyu-pet
+	url = https://github.com/QCYTSN/dsh-dafeiyu
+	shallow = true
