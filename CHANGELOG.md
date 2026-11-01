@@ -8,12 +8,12 @@
 
 ### 2026-11-01 · DSH 插件（DeepSeek Harness）
 
-- 新增 `dsh-plugin/`（无构建 Cordis bundle）：Harness 侧栏「Deep肥鱼」原生面板（状态 / 账号 / 会话 / 消息 / 发送 / 今日统计 / 控制台启停 / 打开完整控制台）、8 个 `deepfeiyu_*` Agent 工具、控制台进程监管（`mode=auto` 自动拉起或 `attach` 只附着）与发送审批。
+- 新增 `dsh-plugin/`（无构建 Cordis bundle）：Harness 侧栏「Deep肥鱼」原生面板（状态 / 账号 / 会话 / 消息 / 发送 / 今日统计 / 控制台启停 / 打开完整控制台）、8 个 `deepfeiyu_*` Agent 工具、控制台进程监管（`mode=auto` 自动拉起或 `attach` 只附着）与发送审批；面板数据经同源、复用 DSH 连接鉴权的插件路由读取。
 - `POST /api/chats/{uid}/send` 新增可选 `source` 字段：`human`（默认，控制台人工发送不排队）或 `dsh`（Harness 智能体发送，走既有发送节流队列）；其他值由 Pydantic 返回 422，空白文本仍返回 400。服务端身份闸门、`send.forbidden_wxids`、写操作本机限制与令牌校验均未改变。
 - Agent 发送跟随 Harness 权限模式：逐步审批 / 自动审批走审批弹窗（`allowed-once` 才发送），完全批准直接发送；缺少审批服务时按拒绝处理（fail closed）。
 - 新增 `tests/test_send_source.py`（来源语义与校验）与 `tests/test_dsh_plugin.py`（bundle 静态一致性：manifest、patch、locale、icon、files、8 个工具名、`node --check`）。
 - `README.md` 与 `docs/使用说明.md` 新增 DSH 插件章节：安装、配置表、安全说明、`source` 参数与故障排查。
-- 未验证（需在目标 Harness 人工验收）：面板视觉、审批弹窗交互、实机安装与真实发送；本仓库只验证 Python 侧行为与 bundle 静态一致性。
+- 验证状态：bundle 已实机安装（`application: applied`），8 个 `deepfeiyu_*` 工具实机调用通过，面板数据与交互经用户验收；真实微信发送（本机无可用通道）与 `ask` 模式审批弹窗未实测；仓库测试覆盖 Python 侧 `source` 语义与 bundle 静态一致性。
 
 ## [1.0.1] - 2026-11-01
 

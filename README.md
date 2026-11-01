@@ -386,7 +386,7 @@ Python 插件与应用同权限运行，只装你信任的代码。
 
 ## 7.5 DSH 插件（DeepSeek Harness）
 
-`dsh-plugin/` 是一个**无构建**的 Cordis bundle，把 Deep肥鱼接进 DeepSeek Harness（下称 DSH）：DSH 侧栏出现「Deep肥鱼」原生面板，Harness 里的智能体拿到 8 个 `deepfeiyu_*` 工具，插件还能按需拉起/停止本仓库的控制台进程。它不重写本项目，也不新增运行时——Host 半（`index.js` + `lib/`）只通过 HTTP 调用既有的 `http://127.0.0.1:8765` API，Client 半（`client.js`）是注册在 DSH slot 里的原生 React 面板（不是 iframe）。
+`dsh-plugin/` 是一个**无构建**的 Cordis bundle，把 Deep肥鱼接进 DeepSeek Harness（下称 DSH）：DSH 侧栏出现「Deep肥鱼」原生面板，Harness 里的智能体拿到 8 个 `deepfeiyu_*` 工具，插件还能按需拉起/停止本仓库的控制台进程。它不重写本项目，也不新增运行时——Host 半（`index.js` + `lib/`）只通过 HTTP 调用既有的 `http://127.0.0.1:8765` API，Client 半（`client.js`）是注册在 DSH slot 里的原生 React 面板（不是 iframe）；面板数据走同源、复用 DSH 连接鉴权的插件路由，不新开对外端口，也不新增无鉴权数据通道。
 
 **安装**
 
@@ -395,7 +395,7 @@ Python 插件与应用同权限运行，只装你信任的代码。
 3. 安装后刷新 DSH 页面（首次安装要加载新的 Client 模块）；替换已装包通常需要重启 Harness。
 4. 默认 `mode=auto`、`autostart=true`：插件激活时先探测控制台，没运行就用本仓库 `.venv` 的 Python 拉起 `-m app.main`；已经在运行则直接附着。只想附着、不许插件拉起进程，把 `mode` 改成 `attach`。
 
-> 本仓库的自动化测试只覆盖 Python 侧 `send` 的 `source` 语义和 bundle 静态一致性（manifest / patch / locale / icon / files / 8 个工具名 / `node --check`）。面板视觉、审批弹窗交互与实机安装需要在目标 Harness 上人工验收；本文不宣称这些已经验证。
+> 验证状态（2026-11-01）：bundle 已实机安装（`application: applied`），8 个 `deepfeiyu_*` 工具实机调用通过（并确认发送被服务端身份闸门拦截），面板数据与交互经用户验收；真实微信发送因本机无可用通道未验证，`ask` 模式的审批弹窗未实测（本次会话为完全批准）。自动化测试覆盖 Python 侧 `send` 的 `source` 语义与 bundle 静态一致性（manifest / patch / locale / icon / files / 8 个工具名 / `node --check`）。
 
 **配置**（写在 Harness 的插件配置里；不是 `data/config.json`）
 
@@ -418,6 +418,7 @@ Python 插件与应用同权限运行，只装你信任的代码。
 - **审批跟随 Harness 权限模式**：逐步审批 / 自动审批模式下，Agent 发送先走审批（只有 `allowed-once` 才发出）；完全批准模式下不弹审批，但仍受上面全部服务端闸门约束；没有审批服务时默认拒绝发送（fail closed）。
 - **令牌不落盘**：访问令牌只由 Host 半在内存中读取（插件配置 → 环境变量 → `data/config.json`），不回显给面板、不进工具结果、不写日志、不写入仓库。
 - **只连本机**：插件只请求 `http://127.0.0.1:<port>`，不引入遥测、外联请求或第三方上报；聊天内容只回给调用它的面板/智能体，不落插件日志。
+- **面板数据路由有鉴权**：面板读数据走插件注册的同源路由，先复用 DSH 的浏览器 Cookie 与 Host/Origin 校验，未通过返回 401/403；不存在绕过 DSH 身份的无鉴权数据通道。
 - 插件管理的控制台子进程由插件自己拉起，卸载时只终止**自己拉起**的进程；`attach` 到的已有实例不动。
 
 **卸载**

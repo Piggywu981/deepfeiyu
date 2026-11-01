@@ -274,3 +274,13 @@ docs/使用说明.md / CHANGELOG.md / README.md   # 用户可见文档
 - 自建 webServer 路由 + 自造 token（默认无鉴权，需重复实现鉴权）。
 - 完整移植 Python 后端（重写项目，违反不引入新运行时）。
 - 把 Python 控制台当 MCP server 接（需要另写 MCP server，且 UI 仍缺）。
+
+## 14. P0 实测与验收记录（2026-11-01）
+
+- **bundle 安装**：`plugin_manager install_bundle` → `application: applied`；`cordis_inspect_query(Config)` 可见 `include:deepfeiyu` 行（无 Config schema，`status: absent`）。
+- **Client 注册**：启用 bundle 后**无需刷新页面**，`sidebar.panellist` 与 `main` 的 `deepfeiyu` occupant 均为 `active`（Client 模块随 HMR 模块图即时加载）。
+- **数据通道**：`ctx.webServer.register + ctx.connection.requestRejection + 同源 fetch` 端到端验证通过（P0 探针由 Client 在模块 apply 时发 POST，Host 记录到 server 端时间戳与 payload）；**Connection RPC 的 `rpc.handle` 实测不可用**（见 §3 第 4 条）。
+- **工具**：8 个 `deepfeiyu_*` 全部注册并实机调用；`deepfeiyu_send` 在完全批准模式下直达服务端并返回「微信通道未启动」，确认服务端身份闸门未被绕过；`deepfeiyu_console start/stop` 与 8765 端口监听状态一致；控制台未运行时错误可读。
+- **面板**：数据、交互经用户实机验收通过（验收期间临时灌入 3 个合成演示会话 + 7 条消息，验收后已清除）。
+- **未验证**：真实微信通道下发消息（本机无 wcferry/微信 4.x 通道）、`ask` 模式审批弹窗交互、完整控制台入口的侧栏打开行为（代码优先 `ctx.sidebarRight.openTab('browser')`，异常降级 `window.open`）。
+- **测试**：`pytest -q` = **9 failed（环境性，与基线同集）/ 1408 passed / 1 skipped**；基线为 9 failed / 1392 passed / 1 skipped，新增 16 项即两个新测试文件；`release_snapshot.py --scan-tracked . --allow-no-policy` 通过。

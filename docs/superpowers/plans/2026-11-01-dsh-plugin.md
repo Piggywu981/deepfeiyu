@@ -877,3 +877,11 @@ git add -A && git commit -m "fix(dsh-plugin): 实机验收问题修复"
 ## 完成标准
 
 规格 §9.1 全部勾选；全量 pytest 与基线一致；`tools/release_snapshot.py --scan-tracked .` 与 `git diff --check` 通过；提交信息符合 Conventional Commits；未 push/未开 PR。
+
+---
+
+## P0 实测结果与通道修正（2026-11-01，执行后回填）
+
+- **Connection RPC 不可用**：`ctx.connection.rpc.handle` 实测激活即抛 `cannot get property "webServer" without inject`（根因 `@deepseek-ai/dsh-client-connection/lib/index.js:871` 的 `owner.webServer`，Cordis shadow 上下文解析到未注入 `webServer` 的 fiber）。因此改用任务 0 的备选通道。
+- **最终通道**：Host `ctx.webServer.register({ kind:'prefix', path:'/deepfeiyu', handler })` + `ctx.connection.requestRejection({headers})` 鉴权；Client 同源 `fetch('/deepfeiyu/<endpoint>', {method:'POST', credentials:'same-origin'})`。任务 1 计划中的 `lib/rpc.js` 相应改名为 `lib/route.js`，endpoint 契约不变（全部 POST JSON）。
+- **实测结论**：bundle `application: applied`；Client 半免刷新注册 `sidebar.panellist` / `main` occupant；8 个工具全部可用；控制台监督（auto 拉起/停止/端口释放）通过；面板数据与交互经用户验收；`pytest -q` = 9 failed（环境性）/ 1408 passed / 1 skipped。
