@@ -72,9 +72,9 @@ window.__ModuleLoader__.load({
 .dsh-deepfeiyu-meta { margin: 0; color: var(--dsw-alias-label-secondary, #61666b); font-size: 12px; line-height: 18px; }
 .dsh-deepfeiyu-badge { display: inline-flex; align-items: center; gap: 6px; padding: 1px 9px; border: 1px solid var(--dsw-alias-border-l2, #0000001a); border-radius: 999px; background: var(--dsw-alias-bg-layer-2, #fff); color: var(--dsw-alias-label-secondary, #61666b); font-size: 12px; line-height: 18px; white-space: nowrap; }
 .dsh-deepfeiyu-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--dsw-alias-label-caption, #adb2b8); }
-.dsh-deepfeiyu-dot.is-ok { background: var(--dsw-alias-state-success-primary, #22c55e); }
-.dsh-deepfeiyu-dot.is-busy { background: var(--dsw-alias-state-warn-primary, #f59e0b); }
-.dsh-deepfeiyu-dot.is-error { background: var(--dsw-alias-state-error-primary, #ec1313); }
+.dsh-deepfeiyu-dot.dsh-deepfeiyu-is-ok { background: var(--dsw-alias-state-success-primary, #22c55e); }
+.dsh-deepfeiyu-dot.dsh-deepfeiyu-is-busy { background: var(--dsw-alias-state-warn-primary, #f59e0b); }
+.dsh-deepfeiyu-dot.dsh-deepfeiyu-is-error { background: var(--dsw-alias-state-error-primary, #ec1313); }
 .dsh-deepfeiyu-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .dsh-deepfeiyu-btn { appearance: none; margin: 0; padding: 5px 12px; border: 1px solid var(--dsw-alias-border-l2, #0000001a); border-radius: 8px; background: var(--dsw-alias-button-elevated-fill, #fff); color: var(--dsw-alias-label-primary, #0f1115); font: inherit; font-size: 13px; line-height: 20px; white-space: nowrap; cursor: pointer; }
 .dsh-deepfeiyu-btn:hover:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover, #2631480f); }
@@ -86,11 +86,11 @@ window.__ModuleLoader__.load({
 .dsh-deepfeiyu-errorbar-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .dsh-deepfeiyu-errorbar-close { flex: none; appearance: none; margin: 0; padding: 0 2px; border: 0; background: transparent; color: inherit; font: inherit; font-size: 12px; cursor: pointer; }
 .dsh-deepfeiyu-banner { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border: 1px solid var(--dsw-alias-border-l2, #0000001a); border-radius: 12px; background: var(--dsw-alias-bg-layer-2, #fff); }
-.dsh-deepfeiyu-banner.is-busy { border-color: var(--dsw-alias-state-warn-primary, #f59e0b); background: var(--dsw-alias-interactive-bg-hover, #2631480f); }
-.dsh-deepfeiyu-banner.is-error { border-color: var(--dsw-alias-state-error-primary, #ec1313); background: var(--dsw-alias-interactive-bg-hover-danger, #ec13130d); }
+.dsh-deepfeiyu-banner.dsh-deepfeiyu-is-busy { border-color: var(--dsw-alias-state-warn-primary, #f59e0b); background: var(--dsw-alias-interactive-bg-hover, #2631480f); }
+.dsh-deepfeiyu-banner.dsh-deepfeiyu-is-error { border-color: var(--dsw-alias-state-error-primary, #ec1313); background: var(--dsw-alias-interactive-bg-hover-danger, #ec13130d); }
 .dsh-deepfeiyu-banner-body { flex: 1; min-width: 0; }
 .dsh-deepfeiyu-banner-title { margin: 0; font-size: 13px; font-weight: 500; line-height: 20px; }
-.dsh-deepfeiyu-banner.is-error .dsh-deepfeiyu-banner-title { color: var(--dsw-alias-state-error-primary, #ec1313); }
+.dsh-deepfeiyu-banner.dsh-deepfeiyu-is-error .dsh-deepfeiyu-banner-title { color: var(--dsw-alias-state-error-primary, #ec1313); }
 .dsh-deepfeiyu-banner-detail { margin: 2px 0 0; color: var(--dsw-alias-label-secondary, #61666b); font-size: 12px; line-height: 18px; overflow-wrap: anywhere; }
 .dsh-deepfeiyu-banner-actions { display: flex; flex: none; gap: 8px; }
 .dsh-deepfeiyu-accounts { display: flex; flex-direction: column; gap: 8px; }
@@ -99,9 +99,9 @@ window.__ModuleLoader__.load({
 .dsh-deepfeiyu-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .dsh-deepfeiyu-chip { display: inline-flex; align-items: center; gap: 8px; appearance: none; margin: 0; padding: 5px 10px; border: 1px solid var(--dsw-alias-border-l2, #0000001a); border-radius: 10px; background: var(--dsw-alias-bg-layer-2, #fff); color: var(--dsw-alias-label-primary, #0f1115); font: inherit; text-align: left; cursor: pointer; }
 .dsh-deepfeiyu-chip:hover:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover, #2631480f); }
-.dsh-deepfeiyu-chip.is-active { border-color: var(--dsw-alias-brand-primary, #0f1115); background: var(--dsw-alias-interactive-bg-hover, #2631480f); }
+.dsh-deepfeiyu-chip.dsh-deepfeiyu-is-active { border-color: var(--dsw-alias-brand-primary, #0f1115); background: var(--dsw-alias-interactive-bg-hover, #2631480f); }
 .dsh-deepfeiyu-chip:disabled { cursor: default; opacity: 1; }
-.dsh-deepfeiyu-chip:disabled:not(.is-active) { opacity: .6; }
+.dsh-deepfeiyu-chip:disabled:not(.dsh-deepfeiyu-is-active) { opacity: .6; }
 .dsh-deepfeiyu-chip:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary, #4176e6); outline-offset: 1px; }
 .dsh-deepfeiyu-avatar { display: inline-flex; flex: none; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: var(--dsw-alias-button-primary-dimmed, #ebeef2); color: var(--dsw-alias-label-primary, #0f1115); font-size: 12px; font-weight: 600; }
 .dsh-deepfeiyu-chip-text { display: flex; flex-direction: column; gap: 0; min-width: 0; }
@@ -116,7 +116,7 @@ window.__ModuleLoader__.load({
 .dsh-deepfeiyu-chat-list { display: flex; flex: 1; flex-direction: column; gap: 2px; min-height: 0; overflow: auto; }
 .dsh-deepfeiyu-chat { display: flex; flex-direction: column; gap: 2px; width: 100%; appearance: none; margin: 0; padding: 6px 8px; border: 0; border-radius: 8px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .dsh-deepfeiyu-chat:hover { background: var(--dsw-alias-interactive-bg-hover, #2631480f); }
-.dsh-deepfeiyu-chat.is-active { background: var(--dsw-alias-interactive-bg-active, #2631481a); }
+.dsh-deepfeiyu-chat.dsh-deepfeiyu-is-active { background: var(--dsw-alias-interactive-bg-active, #2631481a); }
 .dsh-deepfeiyu-chat:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary, #4176e6); outline-offset: -1px; }
 .dsh-deepfeiyu-chat-line { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .dsh-deepfeiyu-chat-name { flex: 0 1 auto; min-width: 0; overflow: hidden; font-size: 13px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
@@ -124,8 +124,8 @@ window.__ModuleLoader__.load({
 .dsh-deepfeiyu-chat-preview { flex: 1; min-width: 0; overflow: hidden; color: var(--dsw-alias-label-secondary, #61666b); font-size: 12px; line-height: 18px; text-overflow: ellipsis; white-space: nowrap; }
 .dsh-deepfeiyu-tags { display: inline-flex; flex: none; gap: 4px; }
 .dsh-deepfeiyu-tag { flex: none; padding: 0 5px; border: 1px solid var(--dsw-alias-border-l2, #0000001a); border-radius: 4px; color: var(--dsw-alias-label-secondary, #61666b); font-size: 10px; line-height: 16px; }
-.dsh-deepfeiyu-tag.is-warn { border-color: var(--dsw-alias-state-warn-primary, #f59e0b); color: var(--dsw-alias-state-warn-primary, #f59e0b); }
-.dsh-deepfeiyu-tag.is-ok { border-color: var(--dsw-alias-state-success-primary, #22c55e); color: var(--dsw-alias-state-success-primary, #22c55e); }
+.dsh-deepfeiyu-tag.dsh-deepfeiyu-is-warn { border-color: var(--dsw-alias-state-warn-primary, #f59e0b); color: var(--dsw-alias-state-warn-primary, #f59e0b); }
+.dsh-deepfeiyu-tag.dsh-deepfeiyu-is-ok { border-color: var(--dsw-alias-state-success-primary, #22c55e); color: var(--dsw-alias-state-success-primary, #22c55e); }
 .dsh-deepfeiyu-unread { display: inline-flex; flex: none; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--dsw-alias-state-error-primary, #ec1313); color: var(--dsw-alias-label-primary-foreground, #fff); font-size: 10px; line-height: 18px; }
 .dsh-deepfeiyu-thread { display: flex; flex-direction: column; min-height: 0; border: 1px solid var(--dsw-alias-border-l2, #0000001a); border-radius: 12px; background: var(--dsw-alias-bg-layer-1, #fff); overflow: hidden; }
 .dsh-deepfeiyu-thread-empty { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 24px; text-align: center; }
@@ -134,12 +134,12 @@ window.__ModuleLoader__.load({
 .dsh-deepfeiyu-thread-name { overflow: hidden; font-size: 13px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
 .dsh-deepfeiyu-messages { display: flex; flex: 1; flex-direction: column; gap: 10px; min-height: 0; padding: 12px 14px; overflow: auto; }
 .dsh-deepfeiyu-msg { display: flex; flex-direction: column; gap: 2px; max-width: 78%; align-self: flex-start; }
-.dsh-deepfeiyu-msg.is-mine { align-self: flex-end; }
-.dsh-deepfeiyu-msg.is-muted { opacity: .6; }
+.dsh-deepfeiyu-msg.dsh-deepfeiyu-is-mine { align-self: flex-end; }
+.dsh-deepfeiyu-msg.dsh-deepfeiyu-is-muted { opacity: .6; }
 .dsh-deepfeiyu-msg-meta { display: flex; gap: 6px; color: var(--dsw-alias-label-tertiary, #81858c); font-size: 11px; line-height: 16px; }
-.dsh-deepfeiyu-msg.is-mine .dsh-deepfeiyu-msg-meta { justify-content: flex-end; }
+.dsh-deepfeiyu-msg.dsh-deepfeiyu-is-mine .dsh-deepfeiyu-msg-meta { justify-content: flex-end; }
 .dsh-deepfeiyu-bubble { display: flex; flex-direction: column; gap: 2px; padding: 6px 10px; border: 1px solid var(--dsw-alias-border-l1, #0000000a); border-radius: 10px; background: var(--dsw-alias-bg-layer-2, #fff); overflow-wrap: anywhere; }
-.dsh-deepfeiyu-msg.is-mine .dsh-deepfeiyu-bubble { border-color: transparent; background: var(--dsw-alias-button-primary-dimmed, #ebeef2); }
+.dsh-deepfeiyu-msg.dsh-deepfeiyu-is-mine .dsh-deepfeiyu-bubble { border-color: transparent; background: var(--dsw-alias-button-primary-dimmed, #ebeef2); }
 .dsh-deepfeiyu-bubble .dsh-deepfeiyu-tag { align-self: flex-start; }
 .dsh-deepfeiyu-msg-text { font-size: 13px; line-height: 1.55; white-space: pre-wrap; }
 .dsh-deepfeiyu-composer { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-top: 1px solid var(--dsw-alias-border-l1, #0000000a); }
@@ -595,7 +595,7 @@ window.__ModuleLoader__.load({
                 h('div', { className: 'dsh-deepfeiyu-title-row' },
                   h('h1', { className: 'dsh-deepfeiyu-title' }, snapshot && snapshot.title ? String(snapshot.title) : 'Deep肥鱼'),
                   h('span', { className: 'dsh-deepfeiyu-badge' },
-                    h('span', { className: 'dsh-deepfeiyu-dot is-' + (snapshot ? meta.tone : 'idle') }),
+                    h('span', { className: 'dsh-deepfeiyu-dot dsh-deepfeiyu-is-' + (snapshot ? meta.tone : 'idle') }),
                     snapshot ? meta.text : '连接中…')),
                 h('p', { className: 'dsh-deepfeiyu-meta' }, metaParts.join(' · '))),
               h('div', { className: 'dsh-deepfeiyu-actions' },
@@ -627,8 +627,8 @@ window.__ModuleLoader__.load({
           }
 
           function bannerCard(tone, title, detail, actions) {
-            return h('div', { className: 'dsh-deepfeiyu-banner is-' + tone },
-              h('span', { className: 'dsh-deepfeiyu-dot is-' + (tone === 'error' ? 'error' : tone === 'busy' ? 'busy' : 'idle') }),
+            return h('div', { className: 'dsh-deepfeiyu-banner dsh-deepfeiyu-is-' + tone },
+              h('span', { className: 'dsh-deepfeiyu-dot dsh-deepfeiyu-is-' + (tone === 'error' ? 'error' : tone === 'busy' ? 'busy' : 'idle') }),
               h('div', { className: 'dsh-deepfeiyu-banner-body' },
                 h('p', { className: 'dsh-deepfeiyu-banner-title' }, title),
                 detail ? h('p', { className: 'dsh-deepfeiyu-banner-detail' }, detail) : null),
@@ -665,7 +665,7 @@ window.__ModuleLoader__.load({
             return h('button', {
               key: id || accountName(account),
               type: 'button',
-              className: 'dsh-deepfeiyu-chip' + (active ? ' is-active' : ''),
+              className: 'dsh-deepfeiyu-chip' + (active ? ' dsh-deepfeiyu-is-active' : ''),
               disabled: active || busy || !running,
               title: [account && account.display_name, account && account.detail, account && account.error].filter(Boolean).join(' · ') || id,
               onClick: () => { void activateAccount(id); },
@@ -675,7 +675,7 @@ window.__ModuleLoader__.load({
               h('span', { className: 'dsh-deepfeiyu-chip-name' }, accountName(account)),
               h('span', { className: 'dsh-deepfeiyu-chip-sub' },
                 driverText(account && account.driver) + ' · ' + (connected ? '已连接' : '未连接'))),
-            h('span', { className: 'dsh-deepfeiyu-dot ' + (connected ? 'is-ok' : 'is-idle') }));
+            h('span', { className: 'dsh-deepfeiyu-dot ' + (connected ? 'dsh-deepfeiyu-is-ok' : 'dsh-deepfeiyu-is-idle') }));
           }
 
           function renderAccounts() {
@@ -700,13 +700,13 @@ window.__ModuleLoader__.load({
             const unread = Number(item.unread) || 0;
             const tags = [];
             if (item.is_group) tags.push(h('span', { className: 'dsh-deepfeiyu-tag', key: 'group' }, '群'));
-            if (item.paused) tags.push(h('span', { className: 'dsh-deepfeiyu-tag is-warn', key: 'paused' }, '人工'));
-            if (item.ai_enabled) tags.push(h('span', { className: 'dsh-deepfeiyu-tag is-ok', key: 'ai' }, 'AI'));
+            if (item.paused) tags.push(h('span', { className: 'dsh-deepfeiyu-tag dsh-deepfeiyu-is-warn', key: 'paused' }, '人工'));
+            if (item.ai_enabled) tags.push(h('span', { className: 'dsh-deepfeiyu-tag dsh-deepfeiyu-is-ok', key: 'ai' }, 'AI'));
             return h('button', {
               key: uid,
               type: 'button',
               role: 'listitem',
-              className: 'dsh-deepfeiyu-chat' + (uid === selectedUid ? ' is-active' : ''),
+              className: 'dsh-deepfeiyu-chat' + (uid === selectedUid ? ' dsh-deepfeiyu-is-active' : ''),
               title: item.name ? String(item.name) : uid,
               onClick: () => selectChat(uid),
             },
@@ -754,8 +754,8 @@ window.__ModuleLoader__.load({
             return h('div', {
               key: message.id || String(message.ts || 0) + '-' + index,
               className: 'dsh-deepfeiyu-msg'
-                + (mine ? ' is-mine' : '')
-                + (message.is_revoked ? ' is-muted' : ''),
+                + (mine ? ' dsh-deepfeiyu-is-mine' : '')
+                + (message.is_revoked ? ' dsh-deepfeiyu-is-muted' : ''),
             },
             h('div', { className: 'dsh-deepfeiyu-msg-meta' },
               h('span', { className: 'dsh-deepfeiyu-msg-sender' }, mine ? '我' : (message.sender_name || '对方')),
