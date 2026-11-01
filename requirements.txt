@@ -1,0 +1,16 @@
+# 核心依赖：只有这些是启动必需的。可选能力各自一个文件，装不上不影响启动：
+#   requirements-weixin4.txt   微信 4.x 通道
+#   requirements-moments.txt   朋友圈
+#   requirements-pet.txt       桌面宠物
+fastapi>=0.115
+uvicorn[standard]>=0.30
+httpx>=0.27
+pydantic>=2.7
+python-multipart>=0.0.9
+# 表情打标参考立绘缩图用；Pillow 不可用时自动降级为不附参考图
+Pillow>=10.0
+
+# 可选：微信 PC 3.9.x 本地 Hook（全权限收发消息）
+# 需要微信 3.9.10.27 客户端 + Python 3.10~3.12，且不保证能从 PyPI 稳定取得
+# 安装：.venv\Scripts\pip install wcferry
+# wcferry>=39.3.5

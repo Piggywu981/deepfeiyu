@@ -1,0 +1,76 @@
+Deep肥鱼 第三方组件与素材许可（NOTICE）
+
+本文件说明本项目使用的外部组件、各自的许可范围，以及本项目**不**再分发哪些内容。
+许可事实以上游仓库内的 LICENSE / PROVENANCE / ASSET_LICENSE 原文为准。
+
+> 根目录 `LICENSE` 为 Deep肥鱼自身代码的 PolyForm Noncommercial 1.0.0 许可
+> （源码开放、仅限非商业目的），**不是**开源许可，也**不适用于**本文件列出的第三方组件。
+> 第三方组件以各自许可证为准；本项目仅在其许可允许的范围内分发。
+
+## 1. 随仓库分发（已跟踪）
+
+| 组件 | 许可 | 说明 |
+|---|---|---|
+| `vendor/dsh-feiyu-mood/` | MIT（上游 LICENSE 在目录内，Copyright (c) 2026 Yuuyuko-uu） | 控制台心情挂饰及其 6 张素材 |
+| `vendor/bilibili-mcp/` | MIT（上游 LICENSE 在目录内，Copyright (c) 2026 AGI_Ananas） | B 站 MCP 服务端的接入代码 |
+
+基于上游 MIT 代码改写的本项目文件，一并保留上游版权声明：
+
+- `app/static/mood-widget.js`（文件头已注明）
+- `app/mood/prompt.py`、`app/mood/constants.py`（判断提示词与情绪常量取自 dsh-feiyu-mood
+  0.7.6 的实测口径；此处以本条 NOTICE 作署名，而非逐文件加头）
+
+上述 MIT 组件的版权声明与许可全文如下，随本仓库一并保留在
+`vendor/dsh-feiyu-mood/LICENSE` 与 `vendor/bilibili-mcp/LICENSE`：
+
+```text
+MIT License
+
+Copyright (c) 2026 Yuuyuko-uu            （dsh-feiyu-mood）
+Copyright (c) 2026 AGI_Ananas            （bilibili-mcp）
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## 2. 以 git 子模块引用，本项目不内嵌其素材
+
+| 子模块 | pin 版本 / commit | 许可构成 | 本项目的处理 |
+|---|---|---|---|
+| `vendor/dsh-feiyu-pet`（上游 QCYTSN/dsh-dafeiyu） | v0.1.23 / `084323845ab82b68d5388d5c638bec09d8544a8a` | 代码 MIT；素材见上游 `ASSET_LICENSE.md`，其中 `legacy/` **不在 MIT 覆盖范围** | 发行快照与 Release 附件**不含**该子模块内容；用户需自行 `git clone --recursive` 或 `run.bat` 拉取。装配脚本 `tools/pet_assets.py` 会剔除 `legacy/` 受限帧 |
+| `vendor/dsh-whale-widget`（上游 MeteorNOX/DeepSeek-Balance-Whale-Widget） | v0.4.2 / `5247dd6813d6e4430728f39ccc63d43cda046022` | 代码 MIT；`assets/**` 与 `icon.png` **不适用 MIT**——上游 PROVENANCE 明示「as-is 随插件分发，仅用于运行本插件；不授予再许可」 | 同上：不内嵌、不代为再许可。挂件运行时所需素材由用户本机从上游取得 |
+
+## 3. 未复制代码，只按行为描述重写
+
+- **dsh-speak-up**（主动搭话的上游）：该仓库没有 LICENSE 文件。本项目的 `app/proactive/`
+  是依其 README 所述行为的重写实现，**未复制其代码、提示词原文与素材**。
+
+## 4. 由包管理器安装，不在本仓库内
+
+| 依赖 | 来源 | 备注 |
+|---|---|---|
+| `wechatauto-replica` | PyPI（`requirements-weixin4.txt`） | 微信 4.x 通道的读写依赖 |
+| `wcferry` | 需自备微信 PC 3.9.10.27 环境 | 注释项，不随任何依赖文件安装 |
+| `PySide6-Essentials` | PyPI（`requirements-pet.txt`） | 桌宠子进程的 Qt 运行时 |
+
+## 5. 明确不随发行包分发
+
+- **ai-moe-wiki**（形象图鉴的可选外部仓库，B 站 UP 主 ZipZipPipe 绘制）：协议为 **CC BY-NC**
+  （非商业使用），本项目按路径引用、不复制、不打包。需要使用者优先自行获取该仓库，
+  再在 `config.json` 的 `ai.moe_wiki_path` 指定；留空即停用。
+- 上游子模块的美术素材与音效，理由见第 2 条。

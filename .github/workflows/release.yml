@@ -1,0 +1,90 @@
+name: Release
+
+# 只在打了 v* tag 时运行。
+#
+# 必须先在仓库 Settings → Secrets and variables → Actions → Variables 里建一个
+# 仓库变量 RELEASE_ENABLED=true，本 workflow 才会真正产出 Release。
+# 原因：Gitee↔GitHub 的私有镜像仓里没有 release-policy.json（它被 gitignore，只存在于
+# 构建快照的那台机器），那边若照跑，--out 会把内部材料原样打进附件。
+# 私有镜像仓不设这个变量，就在这里跳过；公开纯净仓设了它，才是唯一的发行口。
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    # 双保险：只有 v* tag 的推送才发行（实测 push 到分支也会建 run，不能只靠
+    # on.push.tags 兜），且仓库变量显式开启。GitHub 表达式没有 toLower 之类的
+    # 大小写函数（写了会导致表达式解析失败、整个 run 判 failure 且 0 个 job），
+    # 所以把常见的 TRUE/True/true 三种写法列全。
+    if: >-
+      startsWith(github.ref, 'refs/tags/v')
+      && (vars.RELEASE_ENABLED == 'true'
+          || vars.RELEASE_ENABLED == 'TRUE'
+          || vars.RELEASE_ENABLED == 'True')
+    runs-on: windows-latest
+    # runner 的 stdout 是英文代码页（cp1252），脚本输出中文会抛
+    # UnicodeEncodeError: 'charmap' codec can't encode —— 本机是 GBK 能编码，
+    # 所以本地永远复现不出来。强制 Python 走 UTF-8 模式。
+    env:
+      PYTHONUTF8: "1"
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 泄露兜底扫描（仅已跟踪文件）
+        # 只扫已跟踪文件：submodules: recursive 会把上游自己的文件带进 checkout，
+        # 发行物不含它们（gitlink 不是文件），扫描也不该被上游测试夹具里的
+        # Windows 用户目录占位路径判死。已在本机用浅克隆验证该模式通过。
+        run: python tools/release_snapshot.py --scan-tracked .
+
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt -r requirements-weixin4.txt -r requirements-dev.txt
+
+      - name: 全量测试
+        run: python -m pytest -q -p no:cacheprovider
+
+      # 附件直接用 GitHub 为每个 tag 自动生成的源码包（Source code zip/tar.gz）：
+      # 仓库本身就是可分发的源码（run.bat + requirements + .gitmodules 都在），
+      # 不需要再在 runner 上压一份。子模块是 gitlink，用户 clone --recursive 自取。
+
+      - name: 取 CHANGELOG 对应段作发行说明
+        run: |
+          $ver = "${{ github.ref_name }}" -replace '^v', ''
+          $lines = Get-Content CHANGELOG.md
+          $hit = $lines | Select-String -Pattern "^## \[$ver\]" | Select-Object -First 1
+          if (-not $hit) { throw "CHANGELOG.md 里没有 [$ver] 段落：先补发行说明再打 tag" }
+          $rest = $lines[$hit.LineNumber..($lines.Count - 1)]
+          # 正文只取「发行要点」块：遇到第一个 ### （按日期分组的完整历史）就停
+          $end = ($rest | Select-String -Pattern "^### " | Select-Object -First 1).LineNumber
+          if (-not $end) { $end = $rest.Count }
+          $body = ($rest[0..($end - 2)] -join "`n").TrimEnd()
+          $link = "`n`n完整变更历史见 CHANGELOG.md（仓库根，同 tag）。"
+          ($body + $link) | Set-Content notes.md -Encoding utf8
+          "notes.md 长度 = " + (Get-Content notes.md -Raw).Length
+
+      - name: 追加发行免责声明
+        # 固定在发行说明最前面：即使某个版本的 CHANGELOG 段落写漏，也不会漏掉风险提示
+        run: |
+          $head = Get-Content RELEASE_DISCLAIMER.md -Raw
+          $body = Get-Content notes.md -Raw
+          ($head.TrimEnd() + "`n`n---`n`n" + $body.TrimEnd()) | Set-Content notes.md -Encoding utf8
+
+      - name: 创建 Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: notes.md
+          fail_on_uncommitted_files: true

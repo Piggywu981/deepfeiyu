@@ -1,0 +1,8 @@
+# 微信 PC 4.x 通道：后台解密数据库收消息 + UIA 前台发送（仅 Windows）
+# 除本文件外还需微信 4.x 客户端；装不上时驱动会给出可读报错，不影响其它通道。
+wechatauto-replica>=1.1.7 ; sys_platform == "win32"
+uiautomation>=2.0.18 ; sys_platform == "win32"
+cryptography>=41.0.0
+zstandard>=0.19.0
+pyperclip>=1.8.2
+colorama>=0.4.6

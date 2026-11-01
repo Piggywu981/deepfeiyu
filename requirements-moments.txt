@@ -1,0 +1,9 @@
+# 朋友圈收发与点赞评论：会拉起完整 wechatauto 导入链（仅 Windows）
+# 装了 requirements-weixin4.txt 后，numpy / opencv / pyautogui 多半已随
+# wechatauto-replica 的依赖被拉进来，这一组真正补齐的是 pywin32 / winsdk / psutil。
+pywin32>=306 ; sys_platform == "win32"
+numpy>=1.26
+opencv-python>=4.9 ; sys_platform == "win32"
+pyautogui>=0.9.54
+winsdk>=1.0.0b10 ; sys_platform == "win32"
+psutil>=5.9
