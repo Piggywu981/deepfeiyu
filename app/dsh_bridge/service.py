@@ -6,9 +6,10 @@
 from __future__ import annotations
 
 import hashlib
+import time
 from typing import Any
 
-from .. import config
+from .. import bus, config
 from ..mood import prompt as mood_prompt
 from ..mood import service as mood_service
 from ..mood import settings as mood_settings
@@ -152,3 +153,44 @@ def apply_mood_event(body: dict[str, Any]) -> dict[str, Any]:
     )
     return {**result, "accountId": account_id,
             "mood": mood_service.state_payload(account_id)}
+
+
+_PET_MIN_GAP_S = 1.0
+_pet_last: dict[tuple[str, str], float] = {}
+
+
+def _pet_bus_event(kind: str, title: str, tool: str) -> dict[str, Any] | None:
+    base = {"account_id": config.active_id(), "scope": "auto",
+            "origin": "dsh", "title": title[:40]}
+    if kind == "turn_start":
+        return {"type": "agent_turn", "data": {**base, "type": "start"}}
+    if kind == "tool_start":
+        return {"type": "agent_tool", "data": {**base, "type": "tool_start",
+                                               "name": tool[:40]}}
+    if kind in ("tool_done", "turn_end"):
+        return {"type": "agent_tool", "data": {**base, "type": "done"}}
+    if kind == "error":
+        return {"type": "log", "data": {**base, "level": "error"}}
+    return None
+
+
+def publish_pet_event(body: dict[str, Any]) -> dict[str, Any]:
+    if not section()["pet_events_enabled"]:
+        return {"accepted": False, "reason": "pet-events-disabled"}
+    status = pet_supervisor.status()
+    if not (status.get("enabled") and status.get("running")):
+        return {"accepted": False, "reason": "pet-not-running"}
+    kind = str(body.get("kind") or "")
+    session = body.get("session") if isinstance(body.get("session"), dict) else {}
+    title = str(session.get("title") or "")
+    tool = str(body.get("tool") or "")
+    event = _pet_bus_event(kind, title, tool)
+    if event is None:
+        return {"accepted": False, "reason": "unknown-kind"}
+    key = (event["data"]["account_id"], kind)
+    now = time.time()
+    if now - _pet_last.get(key, 0.0) < _PET_MIN_GAP_S:
+        return {"accepted": False, "reason": "throttled"}
+    _pet_last[key] = now
+    bus.bus.publish(event)
+    return {"accepted": True}

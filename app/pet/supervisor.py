@@ -263,21 +263,27 @@ class PetSupervisor:
     async def _decorate(self, message: dict[str, Any]) -> dict[str, Any]:
         cfg = settings.section()
         state = message.get("state") or "IDLE"
+        origin = str(message.get("origin") or "")
+        title = str(message.get("title") or "")
+        source_label = ""
+        chat_name = ""
+        if origin == "dsh":
+            source_label = "Harness" + (f" · {title}" if title else "")
+        elif cfg.get("showChatName") and state not in {"IDLE", "DISCONNECTED"}:
+            chat_name = self._chat_name()
         if message.get("kind") == "pulse":
             return {
                 **message,
                 **bubble.message_for(
                     state, mood=await self._mood_payload(), pet_cfg=cfg,
+                    chat_name=chat_name, source_label=source_label,
                     kind="pulse", ttlMs=message.get("ttlMs", bubble.PULSE_TTL_DEFAULT),
                     resumeState=message.get("resumeState", "IDLE"),
                 ),
             }
-        chat_name = self._chat_name() if (
-            cfg.get("showChatName") and state not in {"IDLE", "DISCONNECTED"}
-        ) else ""
         out = bubble.message_for(
             state, mood=await self._mood_payload(), pet_cfg=cfg, chat_name=chat_name,
-            kind=message.get("kind", "state"),
+            source_label=source_label, kind=message.get("kind", "state"),
         )
         if message.get("activity"):
             out["activity"] = message["activity"]

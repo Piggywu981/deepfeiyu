@@ -199,3 +199,46 @@ def test_dsh_reason_downgrades_in_group(temp_db, cfg):
     _apply_dsh()
     assert "bug" not in mood_service.inject_block(
         "acc_a", chat_uid="acc_a:group_1", is_group=True)
+
+
+def test_pet_event_publishes_bus_event(cfg, monkeypatch):
+    from app import bus
+    from app.dsh_bridge import service as bridge_service
+    from app.pet.supervisor import supervisor as pet_supervisor
+    monkeypatch.setattr(bridge_service, "_pet_last", {})
+    monkeypatch.setattr(pet_supervisor, "status",
+                        lambda: {"enabled": True, "running": True})
+    published: list[dict] = []
+    monkeypatch.setattr(bus.bus, "publish", lambda event: published.append(event))
+    body = _client().post("/api/dsh/pet-event", json={
+        "kind": "tool_start", "tool": "read",
+        "session": {"id": "s1", "title": "修复登录崩溃"},
+    }).json()
+    assert body["accepted"] is True
+    assert published[0]["type"] == "agent_tool"
+    assert published[0]["data"]["origin"] == "dsh"
+    assert published[0]["data"]["title"] == "修复登录崩溃"
+
+
+def test_pet_event_rejected_when_pet_off(cfg, monkeypatch):
+    from app.dsh_bridge import service as bridge_service
+    from app.pet.supervisor import supervisor as pet_supervisor
+    monkeypatch.setattr(bridge_service, "_pet_last", {})
+    monkeypatch.setattr(pet_supervisor, "status",
+                        lambda: {"enabled": True, "running": False})
+    body = _client().post("/api/dsh/pet-event", json={"kind": "turn_start"}).json()
+    assert body["accepted"] is False
+
+
+def test_pet_event_throttled(cfg, monkeypatch):
+    from app import bus
+    from app.dsh_bridge import service as bridge_service
+    from app.pet.supervisor import supervisor as pet_supervisor
+    monkeypatch.setattr(bridge_service, "_pet_last", {})
+    monkeypatch.setattr(pet_supervisor, "status",
+                        lambda: {"enabled": True, "running": True})
+    published: list[dict] = []
+    monkeypatch.setattr(bus.bus, "publish", lambda event: published.append(event))
+    for _ in range(2):
+        _client().post("/api/dsh/pet-event", json={"kind": "tool_start", "tool": "read"})
+    assert len(published) == 1

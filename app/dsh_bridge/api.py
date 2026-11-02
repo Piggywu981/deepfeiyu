@@ -59,3 +59,9 @@ def post_mood_event(request: Request, body: dict[str, Any]) -> dict[str, Any]:
 def get_timeline(request: Request, limit: int = 20) -> dict[str, Any]:
     _require_local(request)
     return {"ok": True, "events": service.timeline_payload(limit)}
+
+
+@router.post("/pet-event")
+def post_pet_event(request: Request, body: dict[str, Any]) -> dict[str, Any]:
+    _require_local(request)
+    return service.publish_pet_event(body)

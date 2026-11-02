@@ -64,6 +64,12 @@ def test_digest_off_by_default():
     assert "会议改到下午三点" not in detail
 
 
+def test_source_label_rendered_for_harness():
+    _, detail = bubble.decorate("WORKING", mood=None, pet_cfg=_cfg(),
+                                source_label="Harness · 修复登录崩溃")
+    assert "Harness" in detail and "修复登录崩溃" in detail
+
+
 def test_digest_truncated_when_enabled():
     cfg = _cfg(showChatDigest=True)
     _, detail = bubble.decorate("SUCCESS", mood=None, pet_cfg=cfg, digest="长" * 60)

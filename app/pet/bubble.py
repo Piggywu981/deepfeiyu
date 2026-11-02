@@ -52,12 +52,15 @@ def _leading_dim(mood: dict[str, Any] | None) -> str | None:
 
 
 def decorate(state: str, *, mood: dict[str, Any] | None, pet_cfg: dict[str, Any],
-             chat_name: str = "", digest: str = "") -> tuple[str, str]:
+             chat_name: str = "", digest: str = "",
+             source_label: str = "") -> tuple[str, str]:
     message, detail = STATE_COPY.get(state, STATE_COPY["IDLE"])
     flavour = _leading_dim(mood) if state in _MOODY else None
     if flavour:
         message = f"{message}，{flavour}"
     parts = [detail]
+    if source_label:
+        parts.append(_clean(source_label, CHAT_NAME_MAX))
     if pet_cfg.get("showChatName") and chat_name:
         parts.append(_clean(chat_name, CHAT_NAME_MAX))
     # scan_secret 只拦凭证样式；正文原文永远不进这里，摘要另受 20 字截断约束
@@ -68,9 +71,10 @@ def decorate(state: str, *, mood: dict[str, Any] | None, pet_cfg: dict[str, Any]
 
 def message_for(state: str, *, mood: dict[str, Any] | None, pet_cfg: dict[str, Any],
                 chat_name: str = "", digest: str = "", kind: str = "state",
-                **extra: Any) -> dict[str, Any]:
+                source_label: str = "", **extra: Any) -> dict[str, Any]:
     message, detail = decorate(state, mood=mood, pet_cfg=pet_cfg,
-                               chat_name=chat_name, digest=digest)
+                               chat_name=chat_name, digest=digest,
+                               source_label=source_label)
     out: dict[str, Any] = {"kind": kind, "state": state, "message": message, "detail": detail}
     out.update(extra)
     return out
