@@ -217,7 +217,8 @@ export function createFusion({ ctx, config, api }) {
       const state = await api.dshState()
       moodAt = Date.now()
       const mood = state && state.mood ? state.mood : null
-      if (!mood || typeof mood.mood !== 'number') {
+      // 控制台没开心情时不注入：与 inject_block 的 enabled 判断保持一致。
+      if (!mood || typeof mood.mood !== 'number' || mood.enabled === false) {
         moodText = ''
         return
       }
