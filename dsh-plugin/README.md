@@ -70,12 +70,13 @@ Host 侧仅新增三个同源代理端点：`POST /deepfeiyu/deps.state`、`deps
 
 ## 设置页：关联 DSH 插件
 
-桌宠与心情的**上游**本来就是 DSH 插件，设置页可以把它们装进当前 Harness profile：
+桌宠、心情与余额小鲸鱼的**上游**本来就是 DSH 插件，设置页可以把它们装进当前 Harness profile：
 
 | 入口 | npm 包 | 说明 |
 |---|---|---|
 | 桌宠（Harness 会话版） | `dsh-dafeiyu` | 由 Harness 会话事件驱动，自带原生 helper 与素材（解包约 242MB）；与控制台里由微信状态驱动的桌宠是两套 |
 | 心情（Harness 会话版） | `dsh-feiyu-mood` | 每轮 Harness 会话后判断心情，挂饰与设置都在 DSH 侧；不读微信，也不注入控制台心情 |
+| 余额小鲸鱼（Harness 版） | `dsh-whale-widget` | Harness 右下角的 DeepSeek 余额挂件（今日用量、峰谷、气泡与音效，约 7MB）；与控制台里的余额挂件是两套。代码 MIT，素材/图标按上游「as-is 仅用于运行本插件」分发 |
 
 - 安装的是 npm **最新版**（Host 传包名给 `pluginManager.installBundle`，`saveExact` 把实际版本写回 profile）；已有版本时不自动"卸载再装"，更新请到 DSH 自己的插件页；
 - 前端只能传白名单 `id`，包名与安装选项写在 `lib/dsh-plugins.js`；点按钮前会弹一次确认，说明会执行第三方代码；

@@ -1,7 +1,8 @@
-// 「关联 DSH 插件」：在「设置 → Deep肥鱼」里一键安装上游的桌宠 / 心情 DSH 插件。
+// 「关联 DSH 插件」：在「设置 → Deep肥鱼」里一键安装本仓库引用过的上游 DSH 插件
+// （桌宠 / 心情 / 余额小鲸鱼）。
 //
 // 为什么单独放一个文件：安装 DSH bundle 是"下载第三方代码并在 Host 进程全权限运行"，
-// 和面板里的普通数据请求不同级别。这里只认白名单里的两个 npm 包，前端只能传 id，
+// 和面板里的普通数据请求不同级别。这里只认白名单里的三个 npm 包，前端只能传 id，
 // 包名、安装选项都在本文件里写死；真正下载前 Client 还会弹一次确认。
 //
 // 安装的是 npm 上的最新版（spec 就是包名，pnpm 会解析 latest，saveExact 把实际版本
@@ -23,6 +24,14 @@ export const DSH_PLUGIN_DEFS = Object.freeze([
     description: '上游 dsh-feiyu-mood：每轮 Harness 会话结束后判断心情，右下角挂饰与设置项都在 DSH 侧；不读微信，也不注入控制台的心情。',
     sizeHint: '约 7MB',
     note: '装完可在 DSH 插件页调整阈值与注入方式。',
+  }),
+  Object.freeze({
+    id: 'whale-widget',
+    name: 'dsh-whale-widget',
+    label: '余额小鲸鱼（Harness 版）',
+    description: '上游 dsh-whale-widget：Harness 页面右下角的 DeepSeek 余额小鲸鱼，带今日用量、峰谷定价、自定义气泡与音效；与控制台里的余额挂件是两套，读的是 Harness 侧的用量。',
+    sizeHint: '约 7MB',
+    note: '代码 MIT；素材/图标随上游「as-is 仅用于运行本插件」分发，不授予再许可。',
   }),
 ])
 

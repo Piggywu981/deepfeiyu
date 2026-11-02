@@ -155,7 +155,7 @@ def test_readme_documents_settings_page():
 def test_dsh_plugin_installer_whitelist():
     """「关联 DSH 插件」只允许固定白名单：前端只能传 id，包名与安装选项写死。"""
     source = (PKG / "lib" / "dsh-plugins.js").read_text(encoding="utf-8")
-    for name in ("dsh-dafeiyu", "dsh-feiyu-mood"):
+    for name in ("dsh-dafeiyu", "dsh-feiyu-mood", "dsh-whale-widget"):
         assert f"name: '{name}'" in source, f"白名单缺少 {name}"
     # spec 只能来自定义表，不能来自请求体
     assert "installBundle(def.name" in source, "installBundle 的 spec 必须取白名单定义"
@@ -187,7 +187,8 @@ def test_client_dsh_plugin_section():
 def test_readme_documents_dsh_plugin_install():
     """DSH 插件安装功能与安全边界必须在 README 说明。"""
     text = (PKG / "README.md").read_text(encoding="utf-8")
-    for token in ("关联 DSH 插件", "dsh-dafeiyu", "dsh-feiyu-mood", "第三方代码", "最新版"):
+    for token in ("关联 DSH 插件", "dsh-dafeiyu", "dsh-feiyu-mood",
+                  "dsh-whale-widget", "第三方代码", "最新版"):
         assert token in text, f"README 缺少 {token}"
 
 

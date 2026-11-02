@@ -422,7 +422,7 @@ Python 插件与应用同权限运行，只装你信任的代码。
 - **只连本机**：插件只请求 `http://127.0.0.1:<port>`，不引入遥测、外联请求或第三方上报；聊天内容只回给调用它的面板/智能体，不落插件日志。
 - **面板数据路由有鉴权**：面板读数据走插件注册的同源路由，先复用 DSH 的浏览器 Cookie 与 Host/Origin 校验，未通过返回 401/403；不存在绕过 DSH 身份的无鉴权数据通道。
 - **依赖安装不新增执行能力**：设置页的「一键安装」只是经同源路由调用控制台的 `/api/deps/*`，pip 命令与 requirements 路径由 Python 侧写死白名单；插件本身不执行 shell/pip，也不接受前端传入的包名。
-- **第三方 DSH 插件安装有白名单**：设置页「关联 DSH 插件」只允许 `dsh-dafeiyu` / `dsh-feiyu-mood` 两个固定包（npm 最新版），前端只能传白名单 id，点击前二次确认；它经 Host 的 `pluginManager.installBundle` 安装，等价于用户在 DSH 插件页手动安装，不绕过 DSH 自身的版本兼容与构建脚本审批；Agent 工具仍只能走需要 danger-full-access 或审批的 `plugin_manager`。
+- **第三方 DSH 插件安装有白名单**：设置页「关联 DSH 插件」只允许 `dsh-dafeiyu` / `dsh-feiyu-mood` / `dsh-whale-widget` 三个固定包（npm 最新版），前端只能传白名单 id，点击前二次确认；它经 Host 的 `pluginManager.installBundle` 安装，等价于用户在 DSH 插件页手动安装，不绕过 DSH 自身的版本兼容与构建脚本审批；Agent 工具仍只能走需要 danger-full-access 或审批的 `plugin_manager`。
 - **心情/桌宠融合不搬运原文**：DSH 侧只把已判断好的心情结果与 ≤60 字理由写回控制台（`/api/dsh/*`），Harness 对话原文只留在 Host 内存、判断后即丢弃；控制台注入 Harness 的只有共享心情数值与来源为 DSH 的短理由，微信来历永不进 Harness。
 - 插件管理的控制台子进程由插件自己拉起，卸载时只终止**自己拉起**的进程；`attach` 到的已有实例不动。
 

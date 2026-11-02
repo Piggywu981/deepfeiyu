@@ -29,6 +29,7 @@
 - DSH 设置页「Deep肥鱼」新增「关联 DSH 插件」区块：可一键安装上游桌宠 `dsh-dafeiyu` 与心情 `dsh-feiyu-mood` 的 npm 最新版。前端只能传白名单 id，包名与安装选项写死在 `dsh-plugin/lib/dsh-plugins.js`；点击前二次确认并说明会执行第三方代码；安装是 Host 后台任务，设置页轮询进度并显示 `application` 结论。
 - Host 侧新增 `POST /deepfeiyu/dshPlugins.state|dshPlugins.install`，经 `ctx.get('pluginManager')` 调用 DSH 插件管理服务；服务缺失时区块显示不可用，不影响面板其他功能。已安装版本不自动卸载重装（HMR 会拒绝覆盖），更新仍走 DSH 插件页。
 - 这两个上游插件由 Harness 会话驱动，与控制台里由微信状态驱动的桌宠/心情是两套，会并行存在。
+- 补充：白名单从 2 个扩展到 3 个，加入本仓库同样引用过的上游「余额小鲸鱼」`dsh-whale-widget`（约 7MB；代码 MIT，素材/图标按上游「as-is 仅用于运行本插件」声明），它读 Harness 侧用量，与控制台里的余额挂件是两套。
 - `tests/test_dsh_plugin.py` 补充白名单、路由只转发 id、Client 二次确认与 README 说明的静态断言。
 - 验证状态：`tests/test_dsh_plugin.py` 16 passed；`node --check` 覆盖 `client.js` / `lib/route.js` / `lib/dsh-plugins.js`；另用临时假 ctx 脚本（未入库）验证了白名单安装、未知 id 拒绝、已安装拒绝、缺 `pluginManager` 时的降级等 17 项断言。插件已通过「关/开一次」重载，控制台随之重启并恢复 running；`settings.section` occupant `deepfeiyu` 仍在。**验证期间没有实际下载/安装任何第三方 bundle**；设置页的真实点击与装后效果待用户确认。
 
