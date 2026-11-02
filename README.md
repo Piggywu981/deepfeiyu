@@ -89,6 +89,8 @@ run.bat
 
 `driver: auto`：优先 `wcferry`（微信 3.9.x 且安装了依赖），其次 `weixin4`（微信 4.x 且读取依赖可用）；两者都不可用时不会启动通道，并在控制台提示缺少依赖；`webhook` 需要在账号里显式选择。
 
+依赖装不上时不必手敲命令：控制台「设置 → 可选功能依赖」为微信 4.x、WCFerry、朋友圈、桌宠、B 站与核心依赖各留了一个「一键安装」按钮（固定白名单命令，不接受任意包名）；装完按提示重启控制台。
+
 **weixin4 历史回填**：通道启动后会自动从解密库回填各会话最近的历史消息（默认 100 个会话 × 每个会话 50 条），应用离线期间聊的内容 AI 也能读到；重复回填自动去重。可在账号的 `weixin4` 配置里调 `history_chats` / `history_limit`（设 0 关闭）。回填只补「对方发的消息」，自己发的（含手机上回的）不导入。
 
 ### wcferry 多开
@@ -386,16 +388,16 @@ Python 插件与应用同权限运行，只装你信任的代码。
 
 ## 7.5 DSH 插件（DeepSeek Harness）
 
-`dsh-plugin/` 是一个**无构建**的 Cordis bundle，把 Deep肥鱼接进 DeepSeek Harness（下称 DSH）：DSH 侧栏出现「Deep肥鱼」原生面板，Harness 里的智能体拿到 8 个 `deepfeiyu_*` 工具，插件还能按需拉起/停止本仓库的控制台进程。它不重写本项目，也不新增运行时——Host 半（`index.js` + `lib/`）只通过 HTTP 调用既有的 `http://127.0.0.1:8765` API，Client 半（`client.js`）是注册在 DSH slot 里的原生 React 面板（不是 iframe）；面板数据走同源、复用 DSH 连接鉴权的插件路由，不新开对外端口，也不新增无鉴权数据通道。
+`dsh-plugin/` 是一个**无构建**的 Cordis bundle，把 Deep肥鱼接进 DeepSeek Harness（下称 DSH）：DSH 侧栏出现「Deep肥鱼」原生面板，`设置 → Deep肥鱼` 里还有一页依赖环境（六个功能的依赖状态与一键安装）和「关联 DSH 插件」（一键安装上游的桌宠 `dsh-dafeiyu` / 心情 `dsh-feiyu-mood`，npm 最新版、白名单 + 二次确认；它们由 Harness 会话驱动，与控制台里的同名功能是两套），Harness 里的智能体拿到 8 个 `deepfeiyu_*` 工具，插件还能按需拉起/停止本仓库的控制台进程。它不重写本项目，也不新增运行时——Host 半（`index.js` + `lib/`）只通过 HTTP 调用既有的 `http://127.0.0.1:8765` API，Client 半（`client.js`）是注册在 DSH slot 里的原生 React 面板（不是 iframe）；面板数据走同源、复用 DSH 连接鉴权的插件路由，不新开对外端口，也不新增无鉴权数据通道。
 
 **安装**
 
 1. 先在仓库根目录跑一次 `run.bat`，确认 `.venv` 可用；插件不负责装 Python 依赖，`.venv` 缺失时面板会给出「先运行 run.bat」的可读错误。
 2. 在 DSH 的插件管理界面里安装本地目录 `dsh-plugin/`；或让 DSH 里的智能体用 `plugin_manager` 安装本地目录（`action=install_bundle`，`target` 填 `dsh-plugin/` 的绝对路径）。
-3. 安装后刷新 DSH 页面（首次安装要加载新的 Client 模块）；替换已装包通常需要重启 Harness。
+3. 安装后刷新 DSH 页面（首次安装要加载新的 Client 模块）；替换已装包后需要一次插件重载（在插件页把「Deep肥鱼」关一次再打开，或重启 Harness）才会加载新的 Host 代码。
 4. 默认 `mode=auto`、`autostart=true`：插件激活时先探测控制台，没运行就用本仓库 `.venv` 的 Python 拉起 `-m app.main`；已经在运行则直接附着。只想附着、不许插件拉起进程，把 `mode` 改成 `attach`。
 
-> 验证状态（2026-11-01）：bundle 已实机安装（`application: applied`），8 个 `deepfeiyu_*` 工具实机调用通过（并确认发送被服务端身份闸门拦截），面板数据与交互经用户验收；真实微信发送因本机无可用通道未验证，`ask` 模式的审批弹窗未实测（本次会话为完全批准）。自动化测试覆盖 Python 侧 `send` 的 `source` 语义与 bundle 静态一致性（manifest / patch / locale / icon / files / 8 个工具名 / `node --check`）。
+> 验证状态（2026-11-01）：bundle 已实机安装（`application: applied`），8 个 `deepfeiyu_*` 工具实机调用通过（并确认发送被服务端身份闸门拦截），面板数据与交互经用户验收；真实微信发送因本机无可用通道未验证，`ask` 模式的审批弹窗未实测（本次会话为完全批准）。自动化测试覆盖 Python 侧 `send` 的 `source` 语义与 bundle 静态一致性（manifest / patch / locale / icon / files / 8 个工具名 / `node --check`）。设置页「依赖环境」的 Client 半已在浏览器注册（`settings.section` 出现 occupant `deepfeiyu`，页面可见）；Host 半的 `deps.*` / `dshPlugins.*` 路由需要一次插件重载（插件页关/开一次，或重启 Harness）才会加载，重载后设置页按轮询自行恢复。设置页按钮（控制台依赖安装、关联 DSH 插件安装）的浏览器内点击验收仍待确认；「关联 DSH 插件」验证时未实际下载第三方 bundle。
 
 **配置**（写在 Harness 的插件配置里；不是 `data/config.json`）
 
@@ -419,6 +421,8 @@ Python 插件与应用同权限运行，只装你信任的代码。
 - **令牌不落盘**：访问令牌只由 Host 半在内存中读取（插件配置 → 环境变量 → `data/config.json`），不回显给面板、不进工具结果、不写日志、不写入仓库。
 - **只连本机**：插件只请求 `http://127.0.0.1:<port>`，不引入遥测、外联请求或第三方上报；聊天内容只回给调用它的面板/智能体，不落插件日志。
 - **面板数据路由有鉴权**：面板读数据走插件注册的同源路由，先复用 DSH 的浏览器 Cookie 与 Host/Origin 校验，未通过返回 401/403；不存在绕过 DSH 身份的无鉴权数据通道。
+- **依赖安装不新增执行能力**：设置页的「一键安装」只是经同源路由调用控制台的 `/api/deps/*`，pip 命令与 requirements 路径由 Python 侧写死白名单；插件本身不执行 shell/pip，也不接受前端传入的包名。
+- **第三方 DSH 插件安装有白名单**：设置页「关联 DSH 插件」只允许 `dsh-dafeiyu` / `dsh-feiyu-mood` 两个固定包（npm 最新版），前端只能传白名单 id，点击前二次确认；它经 Host 的 `pluginManager.installBundle` 安装，等价于用户在 DSH 插件页手动安装，不绕过 DSH 自身的版本兼容与构建脚本审批；Agent 工具仍只能走需要 danger-full-access 或审批的 `plugin_manager`。
 - 插件管理的控制台子进程由插件自己拉起，卸载时只终止**自己拉起**的进程；`attach` 到的已有实例不动。
 
 **卸载**
@@ -463,6 +467,7 @@ app/
   growth/              自我进化：反思、提案、审批与成长记忆
   bili/                B 站 MCP 客户端与只读巡逻（工具集在代码侧过滤）
   pet/                 桌宠：素材装配、协议盖章、状态归约、气泡、子进程监管
+  deps/                可选功能依赖：白名单安装命令、状态探测与增量日志（/api/deps）
   static/              控制台前端（原生 JS，无构建）
 skills/                可选：本机 SKILL.md 技能
 plugins/               可选：本机 plugin.json 插件
@@ -561,6 +566,9 @@ POST <callback_url>
 | GET | `/api/capabilities/skills/{name}` | 读取一个技能的完整正文 |
 | POST | `/api/capabilities/mcp/{name}/test` | 查看单个 MCP 服务器连接与工具状态 |
 | GET | `/api/diagnose` | 环境自检 |
+| GET | `/api/deps/state` | 六个可选功能的依赖就绪状态与最近安装阶段 |
+| POST | `/api/deps/install` | 一键安装某功能依赖（body `{"feature":"weixin4"}`；命令固定白名单） |
+| GET | `/api/deps/install/log` | 增量读取安装日志（`feature`、`offset`） |
 | GET | `/api/update/check` | 检查更新（`force=1` 跳过缓存），对比本地与 Gitee 远端 master |
 | POST | `/api/driver/restart` | 重启当前账号通道 |
 | GET | `/api/agent/models` | 可用模型与思考强度选项 |

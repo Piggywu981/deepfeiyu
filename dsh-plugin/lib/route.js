@@ -1,6 +1,7 @@
 // 面板数据路由：同源 POST /deepfeiyu/<endpoint>。
 // 自定义 webServer 路由默认无鉴权，必须显式调用 Connection 的 requestRejection 复用浏览器 Cookie / Host-Origin 校验。
 import { describeError, ConsoleDownError, ConsoleApiError } from './ops.js'
+import { createDshPluginsApi } from './dsh-plugins.js'
 
 export const ROUTE_PREFIX = '/deepfeiyu'
 const MAX_BODY_BYTES = 256 * 1024
@@ -42,6 +43,9 @@ async function readJsonBody(req) {
 }
 
 export function registerRoute({ ctx, config, api, state, snapshot, supervisor, sendGate }) {
+  // 「关联 DSH 插件」只操作 Host 的 pluginManager 服务，和控制台 HTTP 无关；
+  // 服务缺失时 state() 返回 available:false，面板照常可用。
+  const dshPlugins = createDshPluginsApi({ ctx })
   const routes = {
     state: async () => snapshot(),
     'console.start': async () => supervisor.start(),
@@ -72,6 +76,28 @@ export function registerRoute({ ctx, config, api, state, snapshot, supervisor, s
     },
     stats: async () => ({ stats: await api.stats() }),
     capabilities: async () => ({ capabilities: await api.capabilities() }),
+    // 设置页依赖管理：直接透传控制台 body，client 的 call() 会解包 {ok:true,value}。
+    'deps.state': async () => api.depsState(),
+    'deps.install': async (payload) => {
+      if (!payload.feature || typeof payload.feature !== 'string') {
+        throw Object.assign(new Error('缺少 feature'), { code: 'INVALID_ARGS' })
+      }
+      return await api.depsInstall(String(payload.feature))
+    },
+    'deps.log': async (payload) => {
+      if (!payload.feature || typeof payload.feature !== 'string') {
+        throw Object.assign(new Error('缺少 feature'), { code: 'INVALID_ARGS' })
+      }
+      return await api.depsLog(String(payload.feature), payload.offset)
+    },
+    // 关联 DSH 插件：只转发白名单 id，包名与安装参数在 lib/dsh-plugins.js 里写死。
+    // 安装是后台任务，这里只负责启动；进度与结果由 state 轮询读取。
+    'dshPlugins.state': async () => dshPlugins.state(),
+    'dshPlugins.install': async (payload) => {
+      const id = typeof payload.id === 'string' ? payload.id.trim() : ''
+      if (!id) throw Object.assign(new Error('缺少 id'), { code: 'INVALID_ARGS' })
+      return await dshPlugins.install(id)
+    },
   }
 
   async function handler(req, res) {

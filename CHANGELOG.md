@@ -15,6 +15,23 @@
 - `README.md` 与 `docs/使用说明.md` 新增 DSH 插件章节：安装、配置表、安全说明、`source` 参数与故障排查。
 - 验证状态：bundle 已实机安装（`application: applied`），8 个 `deepfeiyu_*` 工具实机调用通过，面板数据与交互经用户验收；真实微信发送（本机无可用通道）与 `ask` 模式审批弹窗未实测；仓库测试覆盖 Python 侧 `source` 语义与 bundle 静态一致性。
 
+### 2026-11-01 · 可选功能依赖一键安装
+
+- 新增 `GET /api/deps/state`、`POST /api/deps/install`、`GET /api/deps/install/log`：为六个功能（核心依赖 / 微信 4.x 通道 / 朋友圈 / 桌面宠物 / WCFerry / B 站 MCP）提供依赖就绪状态、一键安装与增量安装日志。桌宠、B 站复用各自既有安装流程；pip 型的包名、requirements 路径与参数写死在 `app/deps/features.py`，不接受前端传入的包名或 pip 参数。安装全局单并发，日志写 `data/deps/install.log`；三个端点只允许本机来源。
+- 控制台「设置」页新增「可选功能依赖」卡片：状态徽标（已安装 / 缺少 N 项 / 未安装 / 不支持当前系统）、缺失项、说明、「一键安装 / 重新安装」与安装日志弹窗；核心依赖装完提示重启控制台。
+- DSH 插件新增「设置 → Deep肥鱼」依赖环境页（注册在 `settings.section`）：同样的六功能状态与一键安装、页内实时日志；控制台未运行时给出原因与「启动控制台」按钮。Host 侧新增 `POST /deepfeiyu/deps.state|deps.install|deps.log` 同源代理（复用 DSH 连接鉴权），插件本身不执行 pip/shell。
+- 新增 `tests/test_deps.py`（白名单命令、状态机、日志增量、端点与本机闸门、委托流程）与 `tests/test_deps_page.py`（页面元素、接线与转义）；`tests/test_dsh_plugin.py` 补充设置页注册与依赖路由静态断言。
+- `README.md`、`docs/使用说明.md` 与 `dsh-plugin/README.md` 同步说明。
+- 验证状态：`tests/test_deps.py`（35）、`tests/test_deps_page.py`（10）、`tests/test_dsh_plugin.py`（12）全部通过；全量 `pytest` 为 1457 passed / 9 failed / 1 skipped，9 个失败均为本机缺可选依赖或子模块（未装 PySide6、未装 wechatauto、`vendor/dsh-whale-widget` 子模块缺失），与本次改动无关。实机：控制台重启后 `/api/deps/state` 返回六项真实状态（core 6/6 已装、weixin4 1/6、moments/pet/wcferry/bili 未装），`/api/deps/install/log` 可读；网页版控制台已能取到新增卡片与弹窗资源。DSH 侧 Client 半已注册（`settings.section` occupant `deepfeiyu`，页面可见），但 Host 半 `deps.*` 路由需要一次插件重载（关/开插件或重启 Harness）才会加载——用户首次打开时看到 `未知 endpoint: deps.state`，已通过关/开插件重载；设置页按钮的实机点击验收仍待确认。真实 pip 下载安装未实测（避免在用户环境触发下载）。
+
+### 2026-11-02 · DSH 设置页：关联 DSH 插件一键安装
+
+- DSH 设置页「Deep肥鱼」新增「关联 DSH 插件」区块：可一键安装上游桌宠 `dsh-dafeiyu` 与心情 `dsh-feiyu-mood` 的 npm 最新版。前端只能传白名单 id，包名与安装选项写死在 `dsh-plugin/lib/dsh-plugins.js`；点击前二次确认并说明会执行第三方代码；安装是 Host 后台任务，设置页轮询进度并显示 `application` 结论。
+- Host 侧新增 `POST /deepfeiyu/dshPlugins.state|dshPlugins.install`，经 `ctx.get('pluginManager')` 调用 DSH 插件管理服务；服务缺失时区块显示不可用，不影响面板其他功能。已安装版本不自动卸载重装（HMR 会拒绝覆盖），更新仍走 DSH 插件页。
+- 这两个上游插件由 Harness 会话驱动，与控制台里由微信状态驱动的桌宠/心情是两套，会并行存在。
+- `tests/test_dsh_plugin.py` 补充白名单、路由只转发 id、Client 二次确认与 README 说明的静态断言。
+- 验证状态：`tests/test_dsh_plugin.py` 16 passed；`node --check` 覆盖 `client.js` / `lib/route.js` / `lib/dsh-plugins.js`；另用临时假 ctx 脚本（未入库）验证了白名单安装、未知 id 拒绝、已安装拒绝、缺 `pluginManager` 时的降级等 17 项断言。插件已通过「关/开一次」重载，控制台随之重启并恢复 running；`settings.section` occupant `deepfeiyu` 仍在。**验证期间没有实际下载/安装任何第三方 bundle**；设置页的真实点击与装后效果待用户确认。
+
 ## [1.0.1] - 2026-11-01
 
 > 本版为 **v1.0.1**：内容等同原计划的 v1.0.0 重新发行，包含法律合规、安全修复、非商业许可、协作规则与发行免责声明。GitHub 的 `v1.0.0` 是 immutable release，tag 无法移动且不可复用，因此当前快照以 `v1.0.1` 发布；两个镜像的 `v1.0.0` 均保留为原始提交。

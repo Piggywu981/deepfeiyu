@@ -90,6 +90,13 @@ export function createConsoleApi({ getConfig, getToken }) {
     },
     stats: () => call('/api/stats'),
     capabilities: () => call('/api/capabilities'),
+    // 依赖管理：控制台按功能 id 返回状态、异步启动安装、按偏移增量读日志。
+    // 安装是后台任务，POST 只负责启动，所以超时放宽到 15s；日志接口可能因缓冲重置返回 reset。
+    depsState: () => call('/api/deps/state'),
+    depsInstall: (feature) => call('/api/deps/install', { method: 'POST', body: { feature }, timeoutMs: 15000 }),
+    depsLog: (feature, offset = 0) => call(
+      `/api/deps/install/log?feature=${encodeURIComponent(feature)}&offset=${Math.max(0, Math.trunc(Number(offset) || 0))}`,
+    ),
     send: (uid, text, source) => call(`/api/chats/${encodeURIComponent(uid)}/send`, {
       method: 'POST',
       body: { text, source },

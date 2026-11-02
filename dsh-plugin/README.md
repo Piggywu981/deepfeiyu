@@ -3,6 +3,8 @@
 在 DeepSeek Harness 里运行与操作 **Deep肥鱼微信智能体**（本仓库的 Python 控制台）：
 
 - Harness 左侧栏新增「Deep肥鱼」图标，中央面板提供控制台状态、启停、账号切换、会话列表、消息记录与发送；
+- Harness「设置 → Deep肥鱼」新增依赖环境页：查看控制台各可选功能的 Python 依赖状态并一键安装，安装过程显示实时日志；
+- 同一设置页还有「关联 DSH 插件」：可一键安装上游的桌宠（`dsh-dafeiyu`）与心情（`dsh-feiyu-mood`）DSH 插件（npm 最新版，白名单 + 二次确认；它们由 Harness 会话驱动，与控制台里的同名功能是两套）；
 - 「打开完整控制台」会在 Harness 右侧栏的官方浏览器标签页里打开完整控制台（`http://127.0.0.1:8765`）；
 - 给 Harness 智能体 8 个 `deepfeiyu_*` 工具，可在服务端身份闸门、禁发名单与节流约束下读取会话、发送消息。
 
@@ -15,8 +17,9 @@
 | `lib/supervisor.js` | 控制台进程监督（拉起/健康轮询/停止） |
 | `lib/approval.js` | Agent 发送审批（跟随 Harness 权限模式） |
 | `lib/tools.js` | 8 个 `deepfeiyu_*` 工具 |
-| `lib/route.js` | 面板数据路由：`POST /deepfeiyu/<endpoint>`（Connection 鉴权） |
-| `client.js` | Client 半：`sidebar.panellist` 图标 + `main` 中央面板 |
+| `lib/route.js` | 面板数据路由：`POST /deepfeiyu/<endpoint>`（Connection 鉴权），含 `deps.*` 与 `dshPlugins.*` |
+| `lib/dsh-plugins.js` | 「关联 DSH 插件」白名单安装器：只调 Host 的 `pluginManager.installBundle`，包名与选项写死 |
+| `client.js` | Client 半：`sidebar.panellist` 图标 + `main` 中央面板 + `settings.section` 设置页 |
 
 无构建步骤、无 npm 依赖；仅使用 DSH 提供的 Cordis 服务与 Node 内建模块。
 
@@ -27,7 +30,7 @@
    - 插件管理页选择「安装本地目录」，或
    - 让智能体调用 `plugin_manager`：`action=install_bundle`，`target=<仓库根>/dsh-plugin`。
 3. 安装结果以 `application` 字段为准；首次安装后刷新页面以加载 Client 模块。
-4. 替换已安装的插件包后需要重启 Harness 才会加载新的 Host JS（本地 link 包的文件改动可被 HMR 感知，但确定性行为以重启为准）。
+4. 替换已安装的插件包后需要一次插件重载（在插件页把「Deep肥鱼」关一次再打开，或重启 Harness）才会加载新的 Host JS；只刷新页面只更新 Client 半。
 
 ## 配置
 
@@ -55,6 +58,30 @@
 | `sendTimeoutMs` | `60000` | 发送超时（服务端节流可能排队） |
 | `panelTitle` | `Deep肥鱼` | 面板标题 |
 
+## 设置页：依赖环境
+
+在 Harness「设置 → Deep肥鱼」中列出控制台六个可选功能（core / weixin4 / moments / pet / wcferry / bili）的 Python 依赖状态：
+
+- 每行显示状态徽标（已安装 / 未安装 / 缺少 N 项 / 不支持当前系统 / 安装中）、说明与缺失项；
+- 点「一键安装」（已装则「重新安装」）后，页面内的终端窗口每 800ms 拉取增量日志，完成或失败会显示结论；已安装或失败过的功能可「查看日志」；
+- 控制台未运行时页面直接显示原因与「启动控制台」按钮，不静默失败。
+
+Host 侧仅新增三个同源代理端点：`POST /deepfeiyu/deps.state`、`deps.install`、`deps.log`，转发到控制台的 `/api/deps/*`。安装仍由控制台执行：本机来源限制、访问令牌校验与固定的依赖白名单命令都不变，插件不新增任何 shell 执行能力。安装完成后按页面提示重启控制台。
+
+## 设置页：关联 DSH 插件
+
+桌宠与心情的**上游**本来就是 DSH 插件，设置页可以把它们装进当前 Harness profile：
+
+| 入口 | npm 包 | 说明 |
+|---|---|---|
+| 桌宠（Harness 会话版） | `dsh-dafeiyu` | 由 Harness 会话事件驱动，自带原生 helper 与素材（解包约 242MB）；与控制台里由微信状态驱动的桌宠是两套 |
+| 心情（Harness 会话版） | `dsh-feiyu-mood` | 每轮 Harness 会话后判断心情，挂饰与设置都在 DSH 侧；不读微信，也不注入控制台心情 |
+
+- 安装的是 npm **最新版**（Host 传包名给 `pluginManager.installBundle`，`saveExact` 把实际版本写回 profile）；已有版本时不自动"卸载再装"，更新请到 DSH 自己的插件页；
+- 前端只能传白名单 `id`，包名与安装选项写在 `lib/dsh-plugins.js`；点按钮前会弹一次确认，说明会执行第三方代码；
+- 安装是 Host 进程里的后台任务，设置页轮询进度并显示 `application` 结论（`applied` 刷新页面生效，`restart-required` 需重启 Harness）；
+- 只依赖 Host 的 `pluginManager` 服务：服务缺失时该区块显示"没有插件管理服务"，面板其余功能不受影响。
+
 ## 安全
 
 - **不削弱任何服务端闸门**：所有发送仍走 Python 控制台的既有 `send_text`（含驱动在线、绑定身份确认、`send.forbidden_wxids` 禁发名单、写操作本机限制、访问令牌校验）。
@@ -62,6 +89,7 @@
 - **agent 发送走节流队列**：工具调用以 `source="dsh"` 走控制台既有的发送节流（全局最小间隔 + 会话冷却），比人工发送更保守；面板发送等价人工点击（`source="human"`）。
 - **令牌不外泄**：令牌只在 Host 进程内用于调用 `127.0.0.1`，不写日志、不返回给 Client、不进入工具结果。
 - **面板数据路由有鉴权**：`/deepfeiyu/*` 先调用 `ctx.connection.requestRejection` 复用 DSH 的浏览器 Cookie 与 Host/Origin 校验，未通过直接 401/403。
+- **第三方插件安装是显式用户动作**：`dshPlugins.*` 只操作本机 Harness profile，白名单固定为 `dsh-dafeiyu` / `dsh-feiyu-mood`，不接受任意 spec；Client 点击前二次确认。它等价于用户在 DSH 插件页手动安装，不改变 DSH 自身的版本兼容与构建脚本审批逻辑；Agent 工具仍只能走 `plugin_manager`（需要 danger-full-access 或审批）。
 - 聊天内容会作为工具结果进入模型上下文（这是本插件被要求的用途）；插件自身不把聊天内容写入日志或文件。
 
 ## 工具清单
@@ -85,6 +113,9 @@
 | 面板显示连接失败 | 端口是否被占用、`host`/`port` 是否与控制台一致；`deepfeiyu_console action=status` 查看 |
 | 工具报「控制台未运行」 | `deepfeiyu_console action=start`，或打开面板点「启动」 |
 | 工具报 401/403 | 控制台设置了访问令牌，但插件没读到；配置 `accessToken` 或设置 `DEEPFEIYU_ACCESS_TOKEN` |
+| 设置页安装按钮报「控制台未运行」 | 先在设置页点「启动控制台」（或面板/工具的启动入口），就绪后状态徽标会自动刷新 |
+| 关联 DSH 插件显示「没有插件管理服务」 | 当前 profile 没有启用 `plugin-manager`；在 DSH 插件页启用，或改用 DSH 插件页手动安装 |
+| 关联 DSH 插件安装失败 / 提示已安装 | 失败看结论里的诊断（体积大时可能下载超时，可重试）；已安装时更新请到 DSH 插件页操作，这里不自动卸载重装 |
 | 发送被拒 | 看错误：无通道/身份未确认/命中禁发名单/未获审批/节流超时，分别对应控制台与服务端策略 |
 
 ## 卸载与回滚

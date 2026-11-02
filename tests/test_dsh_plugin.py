@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -109,6 +110,85 @@ def test_tool_names_match_host_source():
     source = tools.read_text(encoding="utf-8")
     for name in TOOL_NAMES:
         assert f"'{name}'" in source or f'"{name}"' in source, f"lib/tools.js 缺少工具名 {name}"
+
+
+def test_settings_section_registered_in_client():
+    """设置页分区必须注册在 settings.section，label 为「Deep肥鱼」，并走 deps.* 代理端点。"""
+    source = (PKG / "client.js").read_text(encoding="utf-8")
+    assert "DeepFeiyuSettingsPage" in source, "client.js 缺少设置页组件 DeepFeiyuSettingsPage"
+    for endpoint in ("deps.state", "deps.install", "deps.log"):
+        assert f"'{endpoint}'" in source or f'"{endpoint}"' in source, f"client.js 未调用 {endpoint}"
+    # 只匹配设置页那一次注册：name、id 与 label 必须成组出现，避免把侧栏图标的同名 label 当成通过。
+    assert re.search(
+        r"name:\s*'settings\.section',[\s\S]*?label:\s*\(\)\s*=>\s*'Deep肥鱼'",
+        source,
+    ), "client.js 没有以「Deep肥鱼」为 label 注册 settings.section"
+
+
+def test_route_proxies_deps_endpoints():
+    """Host 路由要把设置页的依赖请求代理到控制台，且 feature 参数必须校验。"""
+    source = (PKG / "lib" / "route.js").read_text(encoding="utf-8")
+    for endpoint in ("deps.state", "deps.install", "deps.log"):
+        assert f"'{endpoint}'" in source, f"lib/route.js 缺少路由 {endpoint}"
+    assert "api.depsState" in source, "deps.state 未代理到 api.depsState"
+    assert "api.depsInstall" in source, "deps.install 未代理到 api.depsInstall"
+    assert "api.depsLog" in source, "deps.log 未代理到 api.depsLog"
+    assert "INVALID_ARGS" in source, "缺少 feature 时应返回 INVALID_ARGS"
+
+
+def test_ops_targets_console_deps_api():
+    """控制台 HTTP 层要指向固定的 /api/deps/* 契约路径。"""
+    source = (PKG / "lib" / "ops.js").read_text(encoding="utf-8")
+    for path in ("/api/deps/state", "/api/deps/install", "/api/deps/install/log"):
+        assert path in source, f"lib/ops.js 缺少控制台路径 {path}"
+
+
+def test_readme_documents_settings_page():
+    """用户可见改动必须在 README 说明设置页与依赖安装，以及控制台未运行时的处理。"""
+    text = (PKG / "README.md").read_text(encoding="utf-8")
+    assert "设置" in text, "README 未提到 DSH 设置页"
+    assert "一键安装" in text and "依赖" in text, "README 未说明依赖状态与一键安装"
+    assert "/api/deps" in text, "README 未说明依赖接口来源"
+    assert "控制台未运行" in text, "README 故障排查未覆盖控制台未运行"
+
+
+def test_dsh_plugin_installer_whitelist():
+    """「关联 DSH 插件」只允许固定白名单：前端只能传 id，包名与安装选项写死。"""
+    source = (PKG / "lib" / "dsh-plugins.js").read_text(encoding="utf-8")
+    for name in ("dsh-dafeiyu", "dsh-feiyu-mood"):
+        assert f"name: '{name}'" in source, f"白名单缺少 {name}"
+    # spec 只能来自定义表，不能来自请求体
+    assert "installBundle(def.name" in source, "installBundle 的 spec 必须取白名单定义"
+    assert "saveExact: true" in source, "安装最新版后应把实际版本写死回 profile"
+    assert "未知的 DSH 插件" in source, "未知 id 必须被拒绝"
+    assert "payload.spec" not in source and "payload.name" not in source, "不能接受前端传入的包名/spec"
+
+
+def test_route_proxies_dsh_plugin_routes():
+    """Host 路由要把设置页的 DSH 插件安装请求交给白名单安装器，只传 id。"""
+    source = (PKG / "lib" / "route.js").read_text(encoding="utf-8")
+    assert "createDshPluginsApi" in source, "route.js 未创建 DSH 插件安装器"
+    for endpoint in ("dshPlugins.state", "dshPlugins.install"):
+        assert f"'{endpoint}'" in source, f"lib/route.js 缺少路由 {endpoint}"
+    assert "dshPlugins.install(id)" in source, "install 路由应只转发 id"
+    assert "缺少 id" in source, "缺少 id 时应返回 INVALID_ARGS"
+
+
+def test_client_dsh_plugin_section():
+    """设置页要能看到并安装这两个上游 DSH 插件，且点击前必须二次确认。"""
+    source = (PKG / "client.js").read_text(encoding="utf-8")
+    for token in ("关联 DSH 插件", "dshPlugins.state", "dshPlugins.install",
+                  "一键安装最新版", "window.confirm"):
+        assert token in source, f"client.js 缺少 {token}"
+    # 确认文案必须说明会执行第三方代码
+    assert "第三方代码" in source, "安装确认必须说明会执行第三方代码"
+
+
+def test_readme_documents_dsh_plugin_install():
+    """DSH 插件安装功能与安全边界必须在 README 说明。"""
+    text = (PKG / "README.md").read_text(encoding="utf-8")
+    for token in ("关联 DSH 插件", "dsh-dafeiyu", "dsh-feiyu-mood", "第三方代码", "最新版"):
+        assert token in text, f"README 缺少 {token}"
 
 
 def test_js_syntax():

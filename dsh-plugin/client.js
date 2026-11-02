@@ -11,6 +11,8 @@ window.__ModuleLoader__.load({
     const ROUTE = '/deepfeiyu';
     /** 状态轮询与选中会话消息轮询共用 4s 节奏。 */
     const POLL_MS = 4000;
+    /** 安装日志轮询节奏：比状态更快，安装输出才跟得上。 */
+    const DEP_LOG_MS = 800;
     /** 控制台默认端口；state 缺失（Host 刚加载）时作为兜底。 */
     const FALLBACK_PORT = 8765;
 
@@ -154,6 +156,28 @@ window.__ModuleLoader__.load({
 .dsh-deepfeiyu-stat-label { color: var(--dsw-alias-label-secondary, #61666b); font-size: 12px; }
 .dsh-deepfeiyu-hint { margin: 0; color: var(--dsw-alias-label-tertiary, #81858c); font-size: 12px; line-height: 18px; }
 .dsh-deepfeiyu-list-hint { padding: 12px 8px; }
+.dsh-deepfeiyu-settings { box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; color: var(--dsw-alias-label-primary, #0f1115); font-size: 13px; line-height: 1.6; }
+.dsh-deepfeiyu-settings *, .dsh-deepfeiyu-settings *::before, .dsh-deepfeiyu-settings *::after { box-sizing: border-box; }
+.dsh-deepfeiyu-settings-title { margin: 0; font-size: 16px; font-weight: 500; line-height: 24px; }
+.dsh-deepfeiyu-dep-list { display: flex; flex-direction: column; gap: 8px; }
+.dsh-deepfeiyu-dep-row { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px 16px; padding: 10px 12px; border: 1px solid var(--dsw-alias-border-l2, #0000001a); border-radius: 12px; background: var(--dsw-alias-bg-layer-1, #fff); }
+.dsh-deepfeiyu-dep-main { display: flex; flex: 1 1 260px; flex-direction: column; gap: 2px; min-width: 0; }
+.dsh-deepfeiyu-dep-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.dsh-deepfeiyu-dep-name { font-size: 13px; font-weight: 500; line-height: 20px; }
+.dsh-deepfeiyu-dep-desc { margin: 0; color: var(--dsw-alias-label-secondary, #61666b); font-size: 12px; line-height: 18px; overflow-wrap: anywhere; }
+.dsh-deepfeiyu-dep-note { margin: 0; color: var(--dsw-alias-label-tertiary, #81858c); font-size: 12px; line-height: 18px; overflow-wrap: anywhere; }
+.dsh-deepfeiyu-dep-missing { margin: 0; color: var(--dsw-alias-state-warn-primary, #f59e0b); font-size: 12px; line-height: 18px; overflow-wrap: anywhere; }
+.dsh-deepfeiyu-dep-failure { margin: 0; color: var(--dsw-alias-state-error-primary, #ec1313); font-size: 12px; line-height: 18px; overflow-wrap: anywhere; }
+.dsh-deepfeiyu-dep-error { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 8px 12px; border: 1px solid var(--dsw-alias-state-error-primary, #ec1313); border-radius: 10px; background: var(--dsw-alias-interactive-bg-hover-danger, #ec13130d); color: var(--dsw-alias-state-error-primary, #ec1313); font-size: 12px; }
+.dsh-deepfeiyu-dep-actions { display: flex; flex: none; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: auto; }
+.dsh-deepfeiyu-dep-terminal-card { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid var(--dsw-alias-border-l2, #0000001a); border-radius: 12px; background: var(--dsw-alias-bg-layer-1, #fff); }
+.dsh-deepfeiyu-dep-terminal-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.dsh-deepfeiyu-dep-terminal-title { font-size: 13px; font-weight: 500; line-height: 20px; }
+.dsh-deepfeiyu-terminal { margin: 0; padding: 10px 12px; max-height: 260px; overflow: auto; border: 1px solid var(--dsw-alias-border-l1, #0000000a); border-radius: 8px; background: var(--dsw-alias-bg-layer-2, #fff); color: var(--dsw-alias-label-primary, #0f1115); font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace; font-size: 12px; line-height: 18px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.dsh-deepfeiyu-dep-log-status { margin: 0; font-size: 12px; line-height: 18px; overflow-wrap: anywhere; }
+.dsh-deepfeiyu-dep-log-status.dsh-deepfeiyu-is-ok { color: var(--dsw-alias-state-success-primary, #22c55e); }
+.dsh-deepfeiyu-dep-log-status.dsh-deepfeiyu-is-error { color: var(--dsw-alias-state-error-primary, #ec1313); }
+.dsh-deepfeiyu-dep-log-status.dsh-deepfeiyu-is-busy { color: var(--dsw-alias-label-secondary, #61666b); }
 @media (max-width: 900px) {
   .dsh-deepfeiyu-body { grid-template-columns: 240px minmax(0, 1fr); }
   .dsh-deepfeiyu-root { padding: 16px 16px 12px; }
@@ -168,6 +192,19 @@ window.__ModuleLoader__.load({
 
     function phaseMeta(phase) {
       return PHASE_META[phase] || { text: '未知', tone: 'idle' };
+    }
+
+    /** 依赖功能行的状态徽标：正在安装优先于已装/不支持/缺项，避免安装中仍显示旧结论。 */
+    function depsStatus(feature) {
+      const item = feature || {};
+      if (item.phase === 'installing') return { text: '安装中…', tone: 'busy' };
+      if (item.installed) return { text: '已安装', tone: 'ok' };
+      if (item.supported === false) return { text: '不支持当前系统', tone: 'idle' };
+      if (item.partial) {
+        const count = Array.isArray(item.missing) ? item.missing.filter(Boolean).length : 0;
+        return { text: count ? '缺少 ' + count + ' 项' : '缺少部分依赖', tone: 'warn' };
+      }
+      return { text: '未安装', tone: 'idle' };
     }
 
     function driverText(driver) {
@@ -845,6 +882,447 @@ window.__ModuleLoader__.load({
             renderStats());
         }
 
+        // ------------------------------------------------------ 设置页：依赖环境
+        // 挂在 settings.section：列出控制台六个可选功能依赖的状态，支持一键安装并实时看日志。
+        // 控制台未运行时 deps.state 直接失败（错误信息已含“请先启动控制台”），页内给出启动入口，不静默失败。
+        function DeepFeiyuSettingsPage() {
+          // 组件卸载后异步回调不再 setState；日志定时器也必须清掉，否则会持续请求已关闭的控制台。
+          const mounted = React.useRef(true);
+          // 依赖状态请求序号：慢响应不能覆盖更新的状态。
+          const depsSeq = React.useRef(0);
+          const logFeature = React.useRef('');
+          const logOffset = React.useRef(0);
+          // 日志请求互斥：800ms 轮询比 15s 超时短，避免慢请求堆叠。
+          const logBusy = React.useRef(false);
+          const logTimer = React.useRef(null);
+          const terminalRef = React.useRef(null);
+
+          const [deps, setDeps] = React.useState(null);
+          const [depsError, setDepsError] = React.useState('');
+          const [startingConsole, setStartingConsole] = React.useState(false);
+          // 本地安装请求的互斥标记：POST 返回前就禁用按钮，避免连点启动多个安装任务。
+          const [installPending, setInstallPending] = React.useState('');
+          const [log, setLog] = React.useState(null);
+          // 「关联 DSH 插件」独立于控制台依赖：Host 侧 pluginManager 不可用时只提示，不影响上面。
+          const [dshPlugins, setDshPlugins] = React.useState(null);
+          const [dshPluginsError, setDshPluginsError] = React.useState('');
+          const [dshInstallPending, setDshInstallPending] = React.useState('');
+
+          function clearLogTimer() {
+            if (logTimer.current) {
+              window.clearInterval(logTimer.current);
+              logTimer.current = null;
+            }
+          }
+
+          function stopLog() {
+            clearLogTimer();
+            logFeature.current = '';
+            logOffset.current = 0;
+            logBusy.current = false;
+          }
+
+          function closeLog() {
+            stopLog();
+            setLog(null);
+          }
+
+          // 拉一次增量日志：偏移量只增；服务端环形缓冲被截断时 reset=true，要求整体替换旧内容。
+          async function fetchLog() {
+            const feature = logFeature.current;
+            if (!feature || logBusy.current) return;
+            logBusy.current = true;
+            try {
+              const value = await call('deps.log', { feature, offset: logOffset.current }, 15000);
+              if (!mounted.current || logFeature.current !== feature) return;
+              const body = value && typeof value === 'object' ? value : {};
+              const text = typeof body.text === 'string' ? body.text : '';
+              const nextOffset = Number(body.offset);
+              const done = Boolean(body.done);
+              const phase = body.phase ? String(body.phase) : '';
+              logOffset.current = Number.isFinite(nextOffset) && nextOffset >= 0 ? nextOffset : logOffset.current + text.length;
+              setLog((previous) => {
+                // reset 或换了功能就丢弃旧日志，避免不同安装的片段拼在一起。
+                const base = previous && previous.feature === feature && !body.reset ? previous.text : '';
+                return {
+                  feature,
+                  text: base + text,
+                  phase: phase || (previous && previous.feature === feature ? previous.phase : ''),
+                  step: typeof body.step === 'string' ? body.step : '',
+                  error: typeof body.error === 'string' ? body.error : '',
+                  done,
+                };
+              });
+              if (done) {
+                clearLogTimer();
+                void loadDeps();
+              }
+            } catch (error0) {
+              if (!mounted.current) return;
+              // 控制台中途退出：停止轮询并保留已输出日志，避免每 800ms 重复报同一个错。
+              clearLogTimer();
+              setLog((previous) => (previous && previous.feature === feature
+                ? { ...previous, error: errorMessage(error0), done: true }
+                : previous));
+            } finally {
+              logBusy.current = false;
+            }
+          }
+
+          // offset 用安装响应的 log_offset（从当前末尾开始），或 0 表示回看已有日志。
+          function watchLog(feature, offset) {
+            if (!feature) return;
+            clearLogTimer();
+            logFeature.current = feature;
+            logOffset.current = Math.max(0, Math.trunc(Number(offset) || 0));
+            logBusy.current = false;
+            setLog({ feature, text: '', phase: '', step: '', error: '', done: false });
+            void fetchLog();
+            logTimer.current = window.setInterval(() => { void fetchLog(); }, DEP_LOG_MS);
+          }
+
+          async function loadDeps() {
+            const seq = ++depsSeq.current;
+            try {
+              const value = await call('deps.state', {}, 15000);
+              if (!mounted.current || seq !== depsSeq.current) return;
+              const body = value && typeof value === 'object' ? value : {};
+              setDeps({
+                installing: body.installing ? String(body.installing) : '',
+                features: Array.isArray(body.features)
+                  ? body.features.filter((item) => item && typeof item === 'object')
+                  : [],
+              });
+              setDepsError('');
+            } catch (error0) {
+              if (!mounted.current || seq !== depsSeq.current) return;
+              // 不保留旧状态：控制台不可达时旧徽标会误导，直接展示错误与启动入口。
+              setDeps(null);
+              setDepsError(errorMessage(error0));
+            }
+          }
+
+          async function startConsole() {
+            if (startingConsole) return;
+            setStartingConsole(true);
+            setDepsError('');
+            try {
+              // 启动要等健康检查就绪（Host 端最多约 60s），超时放宽到 90s。
+              await call('console.start', {}, 90000);
+              if (!mounted.current) return;
+              // 就绪后再拉一次；固定 4s 轮询也会兜底重试。
+              window.setTimeout(() => {
+                if (mounted.current) void loadDeps();
+              }, 1500);
+            } catch (error0) {
+              if (mounted.current) setDepsError(errorMessage(error0));
+            } finally {
+              if (mounted.current) setStartingConsole(false);
+            }
+          }
+
+          // ------------------------------------------------ 关联 DSH 插件（白名单安装）
+          async function loadDshPlugins() {
+            try {
+              const value = await call('dshPlugins.state', {}, 15000);
+              if (!mounted.current) return;
+              const body = value && typeof value === 'object' ? value : {};
+              setDshPlugins({
+                available: body.available !== false,
+                error: typeof body.error === 'string' ? body.error : '',
+                installing: body.installing ? String(body.installing) : '',
+                plugins: Array.isArray(body.plugins)
+                  ? body.plugins.filter((item) => item && typeof item === 'object')
+                  : [],
+                last: body.last && typeof body.last === 'object' ? body.last : null,
+              });
+              setDshPluginsError('');
+            } catch (error0) {
+              if (!mounted.current) return;
+              // 面板主体仍可用：这里只影响 DSH 插件区块，不清空上面的依赖列表。
+              setDshPlugins(null);
+              setDshPluginsError(errorMessage(error0));
+            }
+          }
+
+          async function installDshPlugin(plugin) {
+            const id = plugin && plugin.id ? String(plugin.id) : '';
+            if (!id || dshInstallPending || (dshPlugins && dshPlugins.installing)) return;
+            const name = plugin && plugin.name ? String(plugin.name) : id;
+            const size = plugin && plugin.sizeHint ? String(plugin.sizeHint) : '较大体积';
+            // 安装 bundle = 下载第三方代码在 Host 进程全权限运行：必须让用户明确点过确认。
+            const confirmed = typeof window === 'undefined' || typeof window.confirm !== 'function'
+              ? true
+              : window.confirm('将安装第三方 DSH 插件 ' + name + '（npm 最新版，' + size + '）。\n\n'
+                + '它会在 Harness 内执行第三方代码，且由 Harness 会话驱动，与控制台里的功能是两套。\n\n确定继续？');
+            if (!confirmed) return;
+            setDshInstallPending(id);
+            setDshPluginsError('');
+            try {
+              const value = await call('dshPlugins.install', { id }, 30000);
+              if (!mounted.current) return;
+              if (value && typeof value === 'object' && value.ok === false) {
+                setDshPluginsError(typeof value.error === 'string' && value.error ? value.error : '安装未能启动');
+                return;
+              }
+              // 后台安装可能几分钟：先刷一次拿到 installing，之后由 1.5s 轮询跟进。
+              await loadDshPlugins();
+            } catch (error0) {
+              if (mounted.current) setDshPluginsError(errorMessage(error0));
+            } finally {
+              if (mounted.current) setDshInstallPending('');
+            }
+          }
+
+          async function installFeature(feature) {
+            const id = feature && feature.id ? String(feature.id) : '';
+            if (!id || installPending || (deps && deps.installing)) return;
+            setInstallPending(id);
+            setDepsError('');
+            try {
+              const value = await call('deps.install', { feature: id }, 15000);
+              if (!mounted.current) return;
+              // 控制台业务失败仍可能返回 HTTP 200 的 {ok:false}，不能当成安装已启动。
+              if (value && typeof value === 'object' && value.ok === false) {
+                setDepsError(typeof value.error === 'string' && value.error ? value.error : '安装未能启动');
+                return;
+              }
+              const offset = value && typeof value === 'object' ? Number(value.log_offset) : 0;
+              watchLog(id, Number.isFinite(offset) ? offset : 0);
+              // 等状态刷新回来再解除本地互斥，避免 installing 尚未上报前按钮短暂可点、重复启动安装。
+              await loadDeps();
+            } catch (error0) {
+              if (mounted.current) setDepsError(errorMessage(error0));
+            } finally {
+              if (mounted.current) setInstallPending('');
+            }
+          }
+
+          // 依赖状态轮询：挂载立即拉一次，之后每 4s；页面在后台时跳过。
+          React.useEffect(() => {
+            mounted.current = true;
+            const tick = () => {
+              if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+              void loadDeps();
+              void loadDshPlugins();
+            };
+            tick();
+            const timer = window.setInterval(tick, POLL_MS);
+            return () => {
+              mounted.current = false;
+              window.clearInterval(timer);
+              clearLogTimer();
+            };
+          }, []);
+
+          // 安装 DSH 插件期间用更快的轮询拿结果（大包可能下载几分钟）；其余时间跟随 4s 主轮询。
+          const dshInstallingId = dshPlugins && dshPlugins.installing ? String(dshPlugins.installing) : '';
+          React.useEffect(() => {
+            if (!dshInstallingId) return undefined;
+            const timer = window.setInterval(() => { void loadDshPlugins(); }, 1500);
+            return () => window.clearInterval(timer);
+          }, [dshInstallingId]);
+
+          // 日志增长时自动贴底，和终端一致；安装输出通常只需要看最新几行。
+          React.useEffect(() => {
+            const element = terminalRef.current;
+            if (element) element.scrollTop = element.scrollHeight;
+          }, [log && log.text]);
+
+          // ------------------------------------------------------------ 渲染片段
+          function settingsButton(label, onClick, options) {
+            const settings = options || {};
+            return h('button', {
+              type: 'button',
+              className: 'dsh-deepfeiyu-btn' + (settings.primary ? ' dsh-deepfeiyu-btn-primary' : ''),
+              disabled: Boolean(settings.disabled),
+              title: settings.title,
+              onClick,
+            }, label);
+          }
+
+          function renderDepsError() {
+            if (!depsError) return null;
+            return h('div', { className: 'dsh-deepfeiyu-dep-error', role: 'alert' },
+              h('span', { className: 'dsh-deepfeiyu-errorbar-text' }, depsError),
+              settingsButton(startingConsole ? '启动中…' : '启动控制台', () => { void startConsole(); }, {
+                primary: true,
+                disabled: startingConsole,
+                title: '启动 Deep肥鱼控制台进程',
+              }));
+          }
+
+          function renderDepRow(feature) {
+            const id = feature && feature.id ? String(feature.id) : '';
+            if (!id) return null;
+            const status = depsStatus(feature);
+            const statusTone = status.tone === 'warn' ? 'busy' : status.tone;
+            const supported = feature.supported !== false;
+            const installed = Boolean(feature.installed);
+            const installing = Boolean((deps && deps.installing === id) || feature.phase === 'installing');
+            const failed = Boolean(feature.error) || feature.phase === 'error';
+            const missing = Array.isArray(feature.missing) ? feature.missing.filter(Boolean).map(String) : [];
+            const desc = typeof feature.desc === 'string' ? feature.desc.trim() : '';
+            const note = typeof feature.note === 'string' ? feature.note.trim() : '';
+            const installLabel = installing ? '安装中…' : installed ? '重新安装' : '一键安装';
+            return h('div', { key: id, className: 'dsh-deepfeiyu-dep-row' },
+              h('div', { className: 'dsh-deepfeiyu-dep-main' },
+                h('div', { className: 'dsh-deepfeiyu-dep-head' },
+                  h('span', { className: 'dsh-deepfeiyu-dep-name' }, feature.label ? String(feature.label) : id),
+                  h('span', { className: 'dsh-deepfeiyu-badge' },
+                    h('span', { className: 'dsh-deepfeiyu-dot dsh-deepfeiyu-is-' + statusTone }),
+                    status.text)),
+                desc ? h('p', { className: 'dsh-deepfeiyu-dep-desc' }, desc) : null,
+                note ? h('p', { className: 'dsh-deepfeiyu-dep-note' }, note) : null,
+                missing.length ? h('p', { className: 'dsh-deepfeiyu-dep-missing' }, '缺少：' + missing.join('、')) : null,
+                feature.error ? h('p', { className: 'dsh-deepfeiyu-dep-failure' }, String(feature.error)) : null),
+              h('div', { className: 'dsh-deepfeiyu-dep-actions' },
+                settingsButton(installLabel, () => { void installFeature(feature); }, {
+                  primary: !installed,
+                  disabled: globalInstalling || !supported,
+                  title: !supported
+                    ? '当前系统不支持该功能'
+                    : globalInstalling ? '已有安装任务进行中' : '安装该功能所需的 Python 依赖',
+                }),
+                installed || failed || installing
+                  ? settingsButton('查看日志', () => watchLog(id, 0), { title: '查看该功能的安装日志' })
+                  : null));
+          }
+
+          function renderLog() {
+            if (!log) return null;
+            const feature = currentFeature;
+            const note = feature && typeof feature.note === 'string' ? feature.note.trim() : '';
+            const phase = log.phase || '';
+            let statusLine;
+            if (phase === 'error' || log.error) {
+              statusLine = h('p', { className: 'dsh-deepfeiyu-dep-log-status dsh-deepfeiyu-is-error', role: 'alert' },
+                '安装失败：' + (log.error || '请查看上方日志定位原因。'));
+            } else if (phase === 'ok') {
+              // note 里若写了“重启控制台”之类的收尾提示，这里原样提醒一次，避免装完不生效的困惑。
+              statusLine = h('p', { className: 'dsh-deepfeiyu-dep-log-status dsh-deepfeiyu-is-ok' },
+                '✓ 安装完成' + (/重启/.test(note) ? ' · 请重启控制台使新依赖生效。' : ''));
+            } else if (log.done) {
+              statusLine = h('p', { className: 'dsh-deepfeiyu-dep-log-status dsh-deepfeiyu-is-busy' }, '安装已结束。');
+            } else {
+              statusLine = h('p', { className: 'dsh-deepfeiyu-dep-log-status dsh-deepfeiyu-is-busy' },
+                '正在安装…' + (log.step ? ' ' + log.step : ''));
+            }
+            return h('section', { className: 'dsh-deepfeiyu-dep-terminal-card' },
+              h('div', { className: 'dsh-deepfeiyu-dep-terminal-head' },
+                h('span', { className: 'dsh-deepfeiyu-dep-terminal-title' },
+                  '安装日志 · ' + (feature && feature.label ? String(feature.label) : log.feature)),
+                settingsButton('收起', closeLog, { title: '收起日志面板' })),
+              h('pre', { className: 'dsh-deepfeiyu-terminal', ref: terminalRef }, log.text || '等待安装日志…'),
+              statusLine);
+          }
+
+          function dshPluginStatus(plugin) {
+            const id = plugin && plugin.id ? String(plugin.id) : '';
+            const installing = Boolean(
+              (dshPlugins && dshPlugins.installing === id)
+              || dshInstallPending === id);
+            if (installing) return { text: '安装中…', tone: 'busy' };
+            if (plugin && plugin.installed) {
+              const version = plugin.version ? ' v' + String(plugin.version) : '';
+              return { text: '已安装' + version, tone: 'ok' };
+            }
+            return { text: '未安装', tone: 'idle' };
+          }
+
+          function renderDshPluginRow(plugin) {
+            const id = plugin && plugin.id ? String(plugin.id) : '';
+            if (!id) return null;
+            const status = dshPluginStatus(plugin);
+            const installing = status.tone === 'busy';
+            const installed = Boolean(plugin.installed);
+            const desc = typeof plugin.description === 'string' ? plugin.description.trim() : '';
+            const note = typeof plugin.note === 'string' ? plugin.note.trim() : '';
+            const size = typeof plugin.sizeHint === 'string' ? plugin.sizeHint : '';
+            // 一次只跑一个安装：已有任务时所有按钮都禁用，避免并发写 profile。
+            const globalBusy = Boolean((dshPlugins && dshPlugins.installing) || dshInstallPending);
+            const label = installing ? '安装中…' : installed ? '已安装' : '一键安装最新版';
+            return h('div', { key: id, className: 'dsh-deepfeiyu-dep-row' },
+              h('div', { className: 'dsh-deepfeiyu-dep-main' },
+                h('div', { className: 'dsh-deepfeiyu-dep-head' },
+                  h('span', { className: 'dsh-deepfeiyu-dep-name' }, plugin.label ? String(plugin.label) : id),
+                  h('span', { className: 'dsh-deepfeiyu-badge' },
+                    h('span', { className: 'dsh-deepfeiyu-dot dsh-deepfeiyu-is-' + status.tone }),
+                    status.text)),
+                desc ? h('p', { className: 'dsh-deepfeiyu-dep-desc' }, desc) : null,
+                note ? h('p', { className: 'dsh-deepfeiyu-dep-note' }, note) : null,
+                plugin.error ? h('p', { className: 'dsh-deepfeiyu-dep-failure' }, '插件状态异常：' + String(plugin.error)) : null),
+              h('div', { className: 'dsh-deepfeiyu-dep-actions' },
+                settingsButton(label, () => { void installDshPlugin(plugin); }, {
+                  primary: !installed,
+                  disabled: globalBusy || installed,
+                  title: installed
+                    ? '已安装；更新请到 DSH 插件页操作'
+                    : '从 npm 安装最新版' + (size ? '（' + size + '）' : ''),
+                })));
+          }
+
+          function renderDshPluginsSection() {
+            const plugins = dshPlugins && Array.isArray(dshPlugins.plugins) ? dshPlugins.plugins : [];
+            const last = dshPlugins && dshPlugins.last ? dshPlugins.last : null;
+            const labelOf = (id) => {
+              const found = plugins.find((item) => item && String(item.id) === String(id));
+              return found && found.label ? String(found.label) : String(id || '');
+            };
+            let lastLine = null;
+            if (last) {
+              const text = last.ok
+                ? '✓ ' + labelOf(last.id) + '：' + (last.version ? 'v' + String(last.version) + ' · ' : '') + String(last.message || '已安装')
+                : '✗ ' + labelOf(last.id) + '安装失败：' + String(last.message || '未知错误');
+              lastLine = h('p', {
+                className: 'dsh-deepfeiyu-dep-log-status ' + (last.ok ? 'dsh-deepfeiyu-is-ok' : 'dsh-deepfeiyu-is-error'),
+                ...(last.ok ? {} : { role: 'alert' }),
+              }, text);
+            }
+            return h('section', { className: 'dsh-deepfeiyu-dep-terminal-card' },
+              h('div', { className: 'dsh-deepfeiyu-dep-terminal-head' },
+                h('span', { className: 'dsh-deepfeiyu-dep-terminal-title' }, '关联 DSH 插件'),
+                settingsButton('刷新', () => { void loadDshPlugins(); }, { title: '刷新 DSH 插件安装状态' })),
+              h('p', { className: 'dsh-deepfeiyu-dep-note' },
+                '这两个上游插件由 Harness 会话驱动，与控制台里的桌宠/心情是两套；安装会在 Harness 内执行第三方代码，装的是 npm 最新版。'),
+              dshPluginsError ? h('p', { className: 'dsh-deepfeiyu-dep-failure', role: 'alert' }, dshPluginsError) : null,
+              dshPlugins && dshPlugins.available === false
+                ? h('p', { className: 'dsh-deepfeiyu-dep-note' }, dshPlugins.error || '当前 Harness 没有插件管理服务')
+                : null,
+              plugins.length
+                ? h('div', { className: 'dsh-deepfeiyu-dep-list' }, plugins.map(renderDshPluginRow))
+                : (dshPluginsError || (dshPlugins && dshPlugins.available === false)
+                  ? null
+                  : h('p', { className: 'dsh-deepfeiyu-hint' }, '正在读取 DSH 插件状态…')),
+              lastLine);
+          }
+
+          const features = deps && Array.isArray(deps.features) ? deps.features : [];
+          // 顶层 installing 是契约字段；再兜底看各功能 phase，避免字段缺失时重复点击启动第二个安装。
+          const globalInstalling = Boolean(
+            (deps && deps.installing)
+            || installPending
+            || features.some((item) => item && item.phase === 'installing'));
+          const currentFeature = log
+            ? features.find((item) => item && String(item.id) === log.feature) || null
+            : null;
+
+          return h('div', { className: 'dsh-deepfeiyu-settings' },
+            h('style', null, STYLES),
+            h('div', { className: 'dsh-deepfeiyu-heading' },
+              h('h2', { className: 'dsh-deepfeiyu-settings-title' }, 'Deep肥鱼 · 依赖环境'),
+              h('p', { className: 'dsh-deepfeiyu-meta' }, '控制台各可选功能的 Python 依赖；装完按提示重启控制台。')),
+            renderDepsError(),
+            deps
+              ? h('div', { className: 'dsh-deepfeiyu-dep-list' },
+                features.length
+                  ? features.map(renderDepRow)
+                  : h('p', { className: 'dsh-deepfeiyu-hint' }, '控制台未报告任何依赖功能。'))
+              : (depsError ? null : h('p', { className: 'dsh-deepfeiyu-hint' }, '正在读取依赖状态…')),
+            renderLog(),
+            renderDshPluginsSection());
+        }
+
         // 用 slots.inject 等父声明就绪后再注册：冷启动时 UI 树尚未声明这两个 slot，
         // 直接 register 会抛 "slot ... is not declared"，让 Client 插件激活失败并触发 boot 审计 fatal。
         ctx.effect(() => ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
@@ -858,6 +1336,15 @@ window.__ModuleLoader__.load({
           name: 'main',
           key: 'deepfeiyu',
         }, DeepFeiyuPanel)), 'deepfeiyu.main-panel');
+
+        // 设置页分区：与上面同样走 inject 等待 slot 声明，冷启动时 settings 页可能还没挂载。
+        // id 不与内置的 account/general/models/plugins/agent-presets 冲突。
+        ctx.effect(() => ctx.slots.inject('settings.section', () => ctx.slots.register({
+          name: 'settings.section',
+          id: 'deepfeiyu',
+          order: 30,
+          label: () => 'Deep肥鱼',
+        }, DeepFeiyuSettingsPage)), 'deepfeiyu.settings-section');
       },
     };
   },

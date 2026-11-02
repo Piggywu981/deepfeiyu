@@ -1413,6 +1413,17 @@
           </label>
         </div>
 
+        <div class="card pad" id="depsCard">
+          <div class="card-head">
+            <h3>可选功能依赖</h3>
+            <span class="tag" id="depsTag">—</span>
+            <div class="spacer"></div>
+            <button class="link-btn" onclick="loadDepsCard()">重新检测</button>
+          </div>
+          <div class="empty-mini">缺依赖的功能装好后可能需要重启控制台才会生效；核心依赖缺失时控制台起不来，请先运行 run.bat。</div>
+          <div id="depsList" class="deps-list"><div class="empty-mini">加载中…</div></div>
+        </div>
+
         <div class="card pad">
           <div class="card-head"><h3>软件更新</h3><span class="tag" id="updateTag">—</span></div>
           <div class="update-row">
@@ -1511,6 +1522,18 @@
     </div>
     <pre id="petInstallTerm" class="bili-terminal" aria-live="polite"></pre>
     <div class="bili-log-foot">日志来自 <code>data/pet/install.log</code>；失败时这里保留最后输出，可复制后反馈。</div>
+  </div>
+</div>
+<div class="bili-log-mask" id="depsInstallMask" hidden>
+  <div class="bili-log-card" role="dialog" aria-modal="true" aria-labelledby="depsInstallTitle">
+    <div class="bili-log-head">
+      <div class="bili-log-title"><strong id="depsInstallTitle">依赖安装</strong><span id="depsInstallStatus" class="bili-log-status">准备中…</span></div>
+      <div class="spacer"></div>
+      <button class="link-btn" onclick="copyDepsInstallLog()">复制日志</button>
+      <button class="link-btn" onclick="closeDepsInstallTerminal()">关闭</button>
+    </div>
+    <pre id="depsInstallTerm" class="bili-terminal" aria-live="polite"></pre>
+    <div class="bili-log-foot">日志来自 <code>data/deps/install.log</code>；桌宠与 B 站功能走各自既有安装流程。</div>
   </div>
 </div>
 <div class="shutdown-mask" id="shutdownMask" hidden>

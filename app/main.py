@@ -28,6 +28,7 @@ from .ai import chuanzi, memory, moe_wiki
 from .bili.api import router as bili_router
 from .bili.patrol import BiliPatrolScheduler
 from .capabilities.registry import registry as capability_registry
+from .deps.api import router as deps_router
 from .growth import prompt as growth_prompt
 from .growth.api import router as growth_router
 from .growth.scheduler import GrowthScheduler
@@ -173,6 +174,7 @@ app.include_router(bili_router)
 app.include_router(mood_router)
 app.include_router(proactive_router)
 app.include_router(pet_router)
+app.include_router(deps_router)
 app.state.llm = llm
 app.state.hub = hub
 app.state.growth_scheduler = growth_scheduler

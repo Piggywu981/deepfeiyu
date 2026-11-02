@@ -277,6 +277,7 @@ function go(page) {
     loadAccounts();
     loadDiagnose();
     loadPersonaPresets();
+    loadDepsCard();
   }
   if (page === "overview") {
     loadStats();
@@ -6780,3 +6781,272 @@ async function copyPetInstallLog() {
   }
 }
 window.copyPetInstallLog = copyPetInstallLog;
+
+/* ---------- 可选功能依赖（设置页）：状态卡片 + 一键安装日志 ----------
+   后端 /api/deps 只暴露固定白名单的安装动作，这里只负责展示状态与日志，
+   不自作主张拼命令；行内按钮统一走 data 属性 + 事件委托，服务端字段不进 onclick。 */
+let depsInstallTimer = null;
+let depsInstallFeature = "";
+let depsInstallOffset = 0;
+let depsInstallText = "";
+let depsCache = { features: [], installing: null };
+
+const DEPS_PHASE_LABEL = { idle: "空闲", installing: "安装中", ok: "完成", error: "失败" };
+
+function depLabel(featureId) {
+  const f = (depsCache.features || []).find((x) => x.id === featureId);
+  return f && f.label ? f.label : featureId;
+}
+
+function depStatusText(f) {
+  if (f.supported === false) return "不支持当前系统";
+  if (f.installed) return "已安装";
+  if (f.partial) return `缺少 ${(f.missing || []).length} 项`;
+  return "未安装";
+}
+
+function renderDepsCard(st) {
+  const list = $("#depsList");
+  if (!list) return;
+  depsCache = st && typeof st === "object" ? st : { features: [], installing: null };
+  const features = Array.isArray(depsCache.features) ? depsCache.features : [];
+  const installing = depsCache.installing;
+  const tag = $("#depsTag");
+  if (tag) {
+    if (installing) tag.textContent = "安装中：" + depLabel(installing);
+    else {
+      const okCount = features.filter((f) => f.installed).length;
+      tag.textContent = `${okCount} / ${features.length} 已安装`;
+    }
+  }
+  if (!features.length) {
+    list.innerHTML = '<div class="empty-mini">后端没有返回可选功能列表。</div>';
+    return;
+  }
+  list.innerHTML = features.map((f) => {
+    const id = String(f.id || "");
+    const supported = f.supported !== false;
+    const busy = !!installing || f.phase === "installing";
+    const status = depStatusText(f);
+    const dotClass = !supported ? "no" : busy ? "busy" : f.installed ? "ok" : "off";
+    const installBtn = supported
+      ? `<button class="btn btn-sm" data-dep-install="${attr(id)}"${busy ? " disabled" : ""}>${busy ? "安装中…" : (f.installed ? "重新安装" : "一键安装")}</button>`
+      : '<button class="btn btn-sm" disabled title="当前系统不支持一键安装，请按使用说明手动安装">不支持当前系统</button>';
+    // 只有真正装过（或装过一轮有日志）才给「查看日志」，避免空日志入口。
+    const hasLog = f.installed || f.phase === "ok" || f.phase === "error";
+    const logBtn = hasLog
+      ? `<button class="link-btn" data-dep-log="${attr(id)}">查看日志</button>`
+      : "";
+    const missing = Array.isArray(f.missing) ? f.missing : [];
+    const missingHtml = missing.length
+      ? `<div class="dep-missing">缺少：${missing.map((m) => `<code>${esc(m)}</code>`).join("、")}</div>`
+      : "";
+    const stepHtml = f.phase === "installing" && f.step
+      ? `<div class="dep-note">当前步骤：${esc(f.step)}</div>`
+      : "";
+    const noteHtml = f.note ? `<div class="dep-note">${esc(f.note)}</div>` : "";
+    const errHtml = f.phase === "error" && f.error ? `<div class="dep-err">${esc(f.error)}</div>` : "";
+    return `<div class="dep-row">
+      <div class="dep-main">
+        <div class="dep-name"><strong>${esc(f.label || id)}</strong><span class="dep-badge ${dotClass}">${esc(status)}</span></div>
+        <div class="dep-desc">${esc(f.desc || "")}</div>
+        ${missingHtml}${stepHtml}${noteHtml}${errHtml}
+      </div>
+      <div class="dep-actions">${installBtn}${logBtn}</div>
+    </div>`;
+  }).join("");
+}
+
+async function loadDepsCard() {
+  const list = $("#depsList");
+  try {
+    const st = await api("/api/deps/state");
+    renderDepsCard(st);
+  } catch (e) {
+    depsCache = { features: [], installing: null };
+    const tag = $("#depsTag");
+    if (tag) tag.textContent = "读取失败";
+    // 404 通常是控制台进程还停在旧版本：说清楚原因，别只显示「请求失败 (404)」。
+    if (list) {
+      const hint = e.status === 404
+        ? "\n（这条接口在当前进程里不存在：控制台多半还是旧版本，重启后这里才有依赖状态）"
+        : "";
+      list.innerHTML = `<div class="empty-mini">依赖状态读取失败：${esc(e.message)}${esc(hint)}</div>`;
+    }
+    if (e.status !== 404) toast(e.message || "依赖状态读取失败", "err");
+  }
+}
+window.loadDepsCard = loadDepsCard;
+
+function appendDepsInstallLog(text) {
+  if (!text) return;
+  const term = $("#depsInstallTerm");
+  if (!term) return;
+  const nearBottom = term.scrollHeight - term.scrollTop - term.clientHeight < 40;
+  depsInstallText += text;
+  // 安装日志可能很长，留最后 20 万字符足够排查，也避免页面越来越卡。
+  if (depsInstallText.length > 200000) depsInstallText = depsInstallText.slice(-200000);
+  term.textContent = depsInstallText;
+  if (nearBottom) term.scrollTop = term.scrollHeight;
+}
+
+function setDepsInstallStatus(text, type = "") {
+  const status = $("#depsInstallStatus");
+  if (!status) return;
+  status.textContent = text;
+  status.style.color = type === "err" ? "var(--red)" : type === "ok" ? "var(--green-d)" : "";
+}
+
+function finishDepsInstall() {
+  if (depsInstallTimer) {
+    clearInterval(depsInstallTimer);
+    depsInstallTimer = null;
+  }
+}
+
+function openDepsTerminal(titleText, statusText) {
+  const mask = $("#depsInstallMask");
+  const term = $("#depsInstallTerm");
+  if (!mask || !term) return false;
+  mask.hidden = false;
+  term.textContent = "";
+  depsInstallText = "";
+  depsInstallOffset = 0;
+  finishDepsInstall();
+  const title = $("#depsInstallTitle");
+  if (title) title.textContent = titleText;
+  setDepsInstallStatus(statusText || "准备中…");
+  return true;
+}
+
+async function installDep(featureId) {
+  const label = depLabel(featureId);
+  if (!openDepsTerminal(label + " · 一键安装", "正在启动安装任务…")) return;
+  depsInstallFeature = featureId;
+  appendDepsInstallLog(`$ ${label} 一键安装 · ${new Date().toLocaleString()}\n\n`);
+  try {
+    const started = await api("/api/deps/install", {
+      method: "POST",
+      body: JSON.stringify({ feature: featureId }),
+    });
+    if (started && started.ok && started.started !== false) {
+      depsInstallOffset = Number(started.log_offset || 0);
+      depsInstallTimer = setInterval(pollDepsInstallLog, 800);
+    } else {
+      const err = (started && started.error) || "安装任务未能启动";
+      appendDepsInstallLog(`✗ ${err}\n`);
+      setDepsInstallStatus("启动失败", "err");
+      toast(err, "err");
+      finishDepsInstall();
+    }
+    await loadDepsCard();
+  } catch (e) {
+    const hint = e.status === 404
+      ? "\n（这条接口在当前进程里不存在：控制台多半还是旧版本，重启后按钮才可用）"
+      : "";
+    appendDepsInstallLog(`✗ 安装任务启动失败：${e.message}${hint}\n`);
+    setDepsInstallStatus("启动失败", "err");
+    toast(e.message || "安装任务启动失败", "err");
+    finishDepsInstall();
+  }
+}
+window.installDep = installDep;
+
+async function pollDepsInstallLog() {
+  if (!depsInstallFeature) return;
+  try {
+    const r = await api(`/api/deps/install/log?offset=${depsInstallOffset}&feature=${encodeURIComponent(depsInstallFeature)}`);
+    depsInstallOffset = Number(r.offset ?? depsInstallOffset);
+    if (r.reset) {
+      depsInstallText = "";
+      const term = $("#depsInstallTerm");
+      if (term) term.textContent = "";
+    }
+    appendDepsInstallLog(r.text || "");
+    const phase = String(r.phase || "");
+    const phaseLabel = DEPS_PHASE_LABEL[phase] || phase || "进行中";
+    const step = r.step ? ` · ${r.step}` : "";
+    setDepsInstallStatus(`当前阶段：${phaseLabel}${step}`, phase === "error" ? "err" : phase === "ok" ? "ok" : "");
+    if (!r.done) return;
+    finishDepsInstall();
+    if (phase === "error") {
+      appendDepsInstallLog(`\n✗ ${r.error || "安装失败"}\n`);
+      setDepsInstallStatus("安装失败", "err");
+      toast(r.error || "依赖安装失败", "err");
+    } else if (phase === "ok") {
+      appendDepsInstallLog("\n✓ 安装完成\n");
+      setDepsInstallStatus("安装完成", "ok");
+    } else {
+      appendDepsInstallLog("\n— 本轮安装任务结束 —\n");
+      setDepsInstallStatus("已结束");
+    }
+    await loadDepsCard();
+    if (phase === "ok") {
+      // note 由后端给出（例如「需要重启控制台才生效」）；这里按关键词提醒，不写死功能名。
+      const f = (depsCache.features || []).find((x) => x.id === depsInstallFeature);
+      const note = (f && f.note) || "";
+      toast(note.includes("重启") ? "安装完成；重启控制台后生效" : "安装完成", "ok");
+    }
+  } catch (e) {
+    appendDepsInstallLog(`\n✗ 读取安装日志失败：${e.message}\n`);
+    setDepsInstallStatus("日志读取失败", "err");
+    finishDepsInstall();
+  }
+}
+
+async function openDepsLog(featureId) {
+  const label = depLabel(featureId);
+  if (!openDepsTerminal(label + " · 安装日志", "正在读取日志…")) return;
+  depsInstallFeature = featureId;
+  try {
+    const r = await api(`/api/deps/install/log?offset=0&feature=${encodeURIComponent(featureId)}`);
+    if (r.reset) depsInstallText = "";
+    appendDepsInstallLog(r.text || "（暂无日志）\n");
+    const phase = String(r.phase || "");
+    const phaseLabel = DEPS_PHASE_LABEL[phase] || phase || "未知";
+    const step = r.step ? ` · ${r.step}` : "";
+    setDepsInstallStatus(`阶段：${phaseLabel}${step}`, phase === "error" ? "err" : phase === "ok" ? "ok" : "");
+    depsInstallOffset = Number(r.offset ?? 0);
+  } catch (e) {
+    const hint = e.status === 404 ? "\n（重启控制台后这个入口才可用）" : "";
+    appendDepsInstallLog(`✗ 读取安装日志失败：${e.message}${hint}\n`);
+    setDepsInstallStatus("日志读取失败", "err");
+  }
+}
+window.openDepsLog = openDepsLog;
+
+function closeDepsInstallTerminal() {
+  finishDepsInstall();
+  const mask = $("#depsInstallMask");
+  if (mask) mask.hidden = true;
+}
+window.closeDepsInstallTerminal = closeDepsInstallTerminal;
+
+async function copyDepsInstallLog() {
+  try {
+    await navigator.clipboard.writeText(depsInstallText);
+    toast("安装日志已复制", "ok");
+  } catch (e) {
+    const ta = document.createElement("textarea");
+    ta.value = depsInstallText;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    ta.remove();
+    toast("安装日志已复制", "ok");
+  }
+}
+window.copyDepsInstallLog = copyDepsInstallLog;
+
+// 行内只用 data 属性：服务端返回的 id 不拼进 onclick 字符串，避免注入与转义遗漏。
+document.addEventListener("click", (e) => {
+  const installBtn = e.target.closest("[data-dep-install]");
+  if (installBtn) {
+    installDep(installBtn.dataset.depInstall);
+    return;
+  }
+  const logBtn = e.target.closest("[data-dep-log]");
+  if (logBtn) openDepsLog(logBtn.dataset.depLog);
+});
