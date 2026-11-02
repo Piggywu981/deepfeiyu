@@ -907,6 +907,10 @@ window.__ModuleLoader__.load({
           const [dshPlugins, setDshPlugins] = React.useState(null);
           const [dshPluginsError, setDshPluginsError] = React.useState('');
           const [dshInstallPending, setDshInstallPending] = React.useState('');
+          // 「心情与桌宠（融合）」：绑定账号、开关、双源时间线都由控制台 /api/dsh/* 提供。
+          const [fusion, setFusion] = React.useState(null);
+          const [fusionError, setFusionError] = React.useState('');
+          const [fusionPending, setFusionPending] = React.useState(false);
 
           function clearLogTimer() {
             if (logTimer.current) {
@@ -1074,6 +1078,36 @@ window.__ModuleLoader__.load({
             }
           }
 
+          async function loadFusion() {
+            try {
+              const value = await call('fusion.state', {}, 15000);
+              if (!mounted.current) return;
+              setFusion(value && typeof value === 'object' ? value : null);
+              setFusionError('');
+            } catch (error0) {
+              if (!mounted.current) return;
+              // 融合区块失败不影响依赖列表：只清融合状态并就地显示错误。
+              setFusion(null);
+              setFusionError(errorMessage(error0));
+            }
+          }
+
+          async function saveFusion(patch) {
+            if (fusionPending) return;
+            setFusionPending(true);
+            setFusionError('');
+            try {
+              const value = await call('fusion.config', patch, 15000);
+              if (!mounted.current) return;
+              setFusion(value && typeof value === 'object' ? value : null);
+              await loadFusion();
+            } catch (error0) {
+              if (mounted.current) setFusionError(errorMessage(error0));
+            } finally {
+              if (mounted.current) setFusionPending(false);
+            }
+          }
+
           async function installFeature(feature) {
             const id = feature && feature.id ? String(feature.id) : '';
             if (!id || installPending || (deps && deps.installing)) return;
@@ -1105,6 +1139,7 @@ window.__ModuleLoader__.load({
               if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
               void loadDeps();
               void loadDshPlugins();
+              void loadFusion();
             };
             tick();
             const timer = window.setInterval(tick, POLL_MS);
@@ -1297,6 +1332,64 @@ window.__ModuleLoader__.load({
               lastLine);
           }
 
+          function renderFusionSection() {
+            const config = fusion && fusion.config ? fusion.config : {};
+            const accounts = fusion && Array.isArray(fusion.accounts) ? fusion.accounts : [];
+            const mood = fusion && fusion.mood ? fusion.mood : null;
+            const timeline = fusion && Array.isArray(fusion.timeline) ? fusion.timeline.slice(0, 8) : [];
+            const selected = fusion && fusion.accountId ? String(fusion.accountId) : '';
+            const toggles = [
+              ['judge_enabled', 'DSH 判断心情', 'Harness 回合结束后用默认模型判断，写回共享库'],
+              ['pet_events_enabled', '宠物反映 Harness', '工具调用/回合结束时驱动同一只桌宠'],
+              ['cross_reason_enabled', '允许 Harness 来历进微信', '只带 ≤60 字理由；群聊永远只说心情'],
+            ];
+            return h('section', { className: 'dsh-deepfeiyu-dep-terminal-card' },
+              h('div', { className: 'dsh-deepfeiyu-dep-terminal-head' },
+                h('span', { className: 'dsh-deepfeiyu-dep-terminal-title' }, '心情与桌宠（融合）'),
+                settingsButton('刷新', () => { void loadFusion(); }, { title: '刷新融合状态' })),
+              h('p', { className: 'dsh-deepfeiyu-dep-note' },
+                '绑定账号后，Harness 与微信共享同一份心情；桌宠由控制台进程渲染，这里只控制与查看。'),
+              fusionError ? h('p', { className: 'dsh-deepfeiyu-dep-failure', role: 'alert' }, fusionError) : null,
+              accounts.length
+                ? h('div', { className: 'dsh-deepfeiyu-dep-row' },
+                  h('div', { className: 'dsh-deepfeiyu-dep-main' },
+                    h('div', { className: 'dsh-deepfeiyu-dep-head' },
+                      h('span', { className: 'dsh-deepfeiyu-dep-name' }, '绑定账号'),
+                      fusion && fusion.boundFallback
+                        ? h('span', { className: 'dsh-deepfeiyu-badge' }, '已回落到当前账号')
+                        : null),
+                    h('p', { className: 'dsh-deepfeiyu-dep-desc' }, 'DSH 侧心情读写的微信账号')),
+                  h('div', { className: 'dsh-deepfeiyu-dep-actions' },
+                    h('select', {
+                      className: 'dsh-deepfeiyu-input',
+                      value: selected,
+                      disabled: fusionPending,
+                      onChange: (event) => { void saveFusion({ account_id: event.target.value }); },
+                    }, accounts.map((account) => h('option', {
+                      key: String(account.id), value: String(account.id),
+                    }, String(account.name) + (account.active ? '（当前）' : ''))))))
+                : null,
+              h('div', { className: 'dsh-deepfeiyu-dep-list' }, toggles.map(([key, label, desc]) =>
+                h('div', { key, className: 'dsh-deepfeiyu-dep-row' },
+                  h('div', { className: 'dsh-deepfeiyu-dep-main' },
+                    h('div', { className: 'dsh-deepfeiyu-dep-head' },
+                      h('span', { className: 'dsh-deepfeiyu-dep-name' }, label)),
+                    h('p', { className: 'dsh-deepfeiyu-dep-desc' }, desc)),
+                  h('div', { className: 'dsh-deepfeiyu-dep-actions' },
+                    settingsButton(config[key] ? '开' : '关', () => {
+                      void saveFusion({ [key]: !config[key] });
+                    }, { disabled: fusionPending, title: '切换' + label }))))),
+              mood ? h('p', { className: 'dsh-deepfeiyu-dep-desc' },
+                '当前心情：' + Math.round(Number(mood.mood) || 0) + '/100'
+                + (fusion && fusion.boundFallback ? '（绑定账号失效，使用当前账号）' : '')) : null,
+              timeline.length
+                ? h('div', { className: 'dsh-deepfeiyu-dep-list' }, timeline.map((row, index) =>
+                  h('p', { key: String(row.id || index), className: 'dsh-deepfeiyu-dep-note' },
+                    (row.origin === 'harness' ? 'Harness' : '微信') + ' · '
+                    + (row.reason ? String(row.reason).slice(0, 60) : '自然平复'))))
+                : null);
+          }
+
           const features = deps && Array.isArray(deps.features) ? deps.features : [];
           // 顶层 installing 是契约字段；再兜底看各功能 phase，避免字段缺失时重复点击启动第二个安装。
           const globalInstalling = Boolean(
@@ -1320,7 +1413,8 @@ window.__ModuleLoader__.load({
                   : h('p', { className: 'dsh-deepfeiyu-hint' }, '控制台未报告任何依赖功能。'))
               : (depsError ? null : h('p', { className: 'dsh-deepfeiyu-hint' }, '正在读取依赖状态…')),
             renderLog(),
-            renderDshPluginsSection());
+            renderDshPluginsSection(),
+            renderFusionSection());
         }
 
         // 用 slots.inject 等父声明就绪后再注册：冷启动时 UI 树尚未声明这两个 slot，

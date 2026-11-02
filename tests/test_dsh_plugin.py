@@ -222,6 +222,13 @@ def test_fusion_judges_mood_and_injects_prompt_context():
         assert token in source, f"lib/fusion.js 缺少 {token}"
 
 
+def test_settings_page_has_fusion_section():
+    source = (PKG / "client.js").read_text(encoding="utf-8")
+    for token in ("心情与桌宠（融合）", "fusion.state", "fusion.config",
+                  "fusion.timeline", "绑定账号", "允许 Harness 来历进微信"):
+        assert token in source, f"client.js 缺少 {token}"
+
+
 def test_js_syntax():
     node = shutil.which("node")
     if not node:
