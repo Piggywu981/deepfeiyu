@@ -229,6 +229,13 @@ def test_settings_page_has_fusion_section():
         assert token in source, f"client.js 缺少 {token}"
 
 
+def test_client_registers_mood_overlay():
+    source = (PKG / "client.js").read_text(encoding="utf-8")
+    for token in ("DeepFeiyuMoodWidget", "shell.overlay", "deepfeiyu-mood",
+                  "fusion.state", "20_000"):
+        assert token in source, f"client.js 缺少 {token}"
+
+
 def test_js_syntax():
     node = shutil.which("node")
     if not node:

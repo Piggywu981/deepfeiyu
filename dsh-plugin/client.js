@@ -178,6 +178,12 @@ window.__ModuleLoader__.load({
 .dsh-deepfeiyu-dep-log-status.dsh-deepfeiyu-is-ok { color: var(--dsw-alias-state-success-primary, #22c55e); }
 .dsh-deepfeiyu-dep-log-status.dsh-deepfeiyu-is-error { color: var(--dsw-alias-state-error-primary, #ec1313); }
 .dsh-deepfeiyu-dep-log-status.dsh-deepfeiyu-is-busy { color: var(--dsw-alias-label-secondary, #61666b); }
+.dsh-deepfeiyu-mood { position: fixed; right: 20px; bottom: 72px; z-index: 40; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.dsh-deepfeiyu-mood-button { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid var(--dsw-alias-border-l2, #0000001a); border-radius: 999px; background: var(--dsw-alias-bg-layer-1, #fff); color: var(--dsw-alias-label-primary, #0f1115); font: inherit; cursor: pointer; }
+.dsh-deepfeiyu-mood-button:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary, #4176e6); outline-offset: 1px; }
+.dsh-deepfeiyu-mood-face { font-size: 16px; }
+.dsh-deepfeiyu-mood-value { font-size: 12px; font-variant-numeric: tabular-nums; }
+.dsh-deepfeiyu-mood-panel { width: 220px; padding: 10px 12px; border: 1px solid var(--dsw-alias-border-l2, #0000001a); border-radius: 12px; background: var(--dsw-alias-bg-layer-1, #fff); }
 @media (max-width: 900px) {
   .dsh-deepfeiyu-body { grid-template-columns: 240px minmax(0, 1fr); }
   .dsh-deepfeiyu-root { padding: 16px 16px 12px; }
@@ -1417,6 +1423,57 @@ window.__ModuleLoader__.load({
             renderFusionSection());
         }
 
+        // 右下角心情挂饰：只读共享状态，20s 轮询；控制台不可达时显示“—”。
+        function DeepFeiyuMoodWidget() {
+          const mounted = React.useRef(true);
+          const [state, setState] = React.useState(null);
+          const [open, setOpen] = React.useState(false);
+
+          async function load() {
+            try {
+              const value = await call('fusion.state', {}, 15000);
+              if (!mounted.current) return;
+              setState(value && typeof value === 'object' ? value : null);
+            } catch {
+              if (mounted.current) setState(null);
+            }
+          }
+
+          React.useEffect(() => {
+            mounted.current = true;
+            void load();
+            const timer = window.setInterval(() => {
+              if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+              void load();
+            }, 20_000);
+            return () => {
+              mounted.current = false;
+              window.clearInterval(timer);
+            };
+          }, []);
+
+          const mood = state && state.mood ? state.mood : null;
+          const value = mood ? Math.round(Number(mood.mood) || 0) : null;
+          const face = value === null ? '·' : value >= 75 ? '☺' : value >= 50 ? '◡' : '·';
+          const timeline = state && Array.isArray(state.timeline) ? state.timeline.slice(0, 5) : [];
+          return h('div', { className: 'dsh-deepfeiyu-mood' },
+            open ? h('div', { className: 'dsh-deepfeiyu-mood-panel' },
+              h('p', { className: 'dsh-deepfeiyu-dep-name' },
+                '心情 ' + (value === null ? '—' : value + '/100')),
+              timeline.map((row, index) => h('p', {
+                key: String(row.id || index), className: 'dsh-deepfeiyu-dep-note',
+              }, (row.origin === 'harness' ? 'Harness' : '微信') + ' · '
+                + (row.reason ? String(row.reason).slice(0, 40) : '自然平复')))) : null,
+            h('button', {
+              type: 'button',
+              className: 'dsh-deepfeiyu-mood-button',
+              'aria-label': '心情挂饰',
+              onClick: () => setOpen((previous) => !previous),
+            },
+            h('span', { className: 'dsh-deepfeiyu-mood-face' }, face),
+            h('span', { className: 'dsh-deepfeiyu-mood-value' }, value === null ? '—' : String(value))));
+        }
+
         // 用 slots.inject 等父声明就绪后再注册：冷启动时 UI 树尚未声明这两个 slot，
         // 直接 register 会抛 "slot ... is not declared"，让 Client 插件激活失败并触发 boot 审计 fatal。
         ctx.effect(() => ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
@@ -1439,6 +1496,14 @@ window.__ModuleLoader__.load({
           order: 30,
           label: () => 'Deep肥鱼',
         }, DeepFeiyuSettingsPage)), 'deepfeiyu.settings-section');
+
+        // 右下角挂饰：frame-wide overlay 列表 slot，固定右下角，不抢任何面板布局。
+        ctx.effect(() => ctx.slots.inject('shell.overlay', () => ctx.slots.register({
+          name: 'shell.overlay',
+          id: 'deepfeiyu-mood',
+          order: 60,
+          label: () => '心情',
+        }, DeepFeiyuMoodWidget)), 'deepfeiyu.mood-widget');
       },
     };
   },
