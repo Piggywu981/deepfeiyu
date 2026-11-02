@@ -298,6 +298,16 @@ def test_auto_tab_present():
     assert "prev || autoFromSettings" in source
 
 
+def test_update_tab_present():
+    source = (PKG / "client.js").read_text(encoding="utf-8")
+    for token in ("'更新与边界'", "renderUpdateTab", "checkUpdateTab", "update.check",
+                  "has_update", "git_repo", "使用边界", "《最终用户许可协议》",
+                  "updateFetched", "openExternal"):
+        assert token in source, f"client.js 缺少 {token}"
+    # 更新检查只在首次打开时自动跑一次，之后只手动（不每 4s 打 Gitee）
+    assert "tab === 'update' && !updateFetched.current" in source
+
+
 def test_js_syntax():
     node = shutil.which("node")
     if not node:

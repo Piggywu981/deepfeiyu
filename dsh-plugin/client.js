@@ -219,7 +219,12 @@ window.__ModuleLoader__.load({
 `;
 
     // 设置页标签：P1 四个，P2 会插入「账号与通道」（规格 §5）。
-    const SETTINGS_TABS = [['model', '模型与人格'], ['auto', '自动回复'], ['deps', '依赖与融合']];
+    const SETTINGS_TABS = [
+      ['model', '模型与人格'],
+      ['auto', '自动回复'],
+      ['deps', '依赖与融合'],
+      ['update', '更新与边界'],
+    ];
 
     // ---------------------------------------------------------------- 纯展示辅助
 
@@ -1004,6 +1009,12 @@ window.__ModuleLoader__.load({
           // ——两者读写同一个 GET/PUT /api/settings，同一个错误态在两个标签里各显各的。
           const [autoDraft, setAutoDraft] = React.useState(null);
           const [autoPending, setAutoPending] = React.useState(false);
+          // 更新标签：首次打开自动查一次，之后只手动（避免每 4s 打 Gitee）。
+          const [update, setUpdate] = React.useState(null);
+          const [updateError, setUpdateError] = React.useState('');
+          const [updatePending, setUpdatePending] = React.useState(false);
+          const [consoleBase, setConsoleBase] = React.useState('http://127.0.0.1:8765');
+          const updateFetched = React.useRef(false);
 
           function clearLogTimer() {
             if (logTimer.current) {
@@ -1524,6 +1535,42 @@ window.__ModuleLoader__.load({
             }
           }
 
+          // ------------------------------------------------ 更新与边界
+          async function checkUpdateTab() {
+            if (updatePending) return;
+            setUpdatePending(true);
+            setUpdateError('');
+            try {
+              const value = await call('update.check', {}, 30000);
+              if (!mounted.current) return;
+              setUpdate(value && typeof value === 'object' ? value : null);
+            } catch (error0) {
+              if (mounted.current) setUpdateError(errorMessage(error0));
+            } finally {
+              if (mounted.current) setUpdatePending(false);
+            }
+          }
+
+          async function readConsoleBase() {
+            try {
+              const value = await call('state', {}, 5000);
+              if (mounted.current && value && value.host) {
+                setConsoleBase('http://' + value.host + ':' + (value.port || 8765));
+              }
+            } catch {
+              // 面板快照读不到时保留默认 8765，协议入口仍可用
+            }
+          }
+
+          function openExternal(url) {
+            const sidebarRight = ctx.get('sidebarRight');
+            if (sidebarRight && typeof sidebarRight.openTab === 'function') {
+              sidebarRight.openTab('browser', { params: { url } });
+              return;
+            }
+            window.open(url, '_blank', 'noopener');
+          }
+
           async function installFeature(feature) {
             const id = feature && feature.id ? String(feature.id) : '';
             if (!id || installPending || (deps && deps.installing)) return;
@@ -1572,6 +1619,11 @@ window.__ModuleLoader__.load({
                 void loadPresets();
               }
               if (tab === 'auto') void loadSettingsTab();
+              if (tab === 'update' && !updateFetched.current) {
+                updateFetched.current = true;
+                void checkUpdateTab();
+                void readConsoleBase();
+              }
             };
             tick();
             const timer = window.setInterval(tick, POLL_MS);
@@ -1846,6 +1898,65 @@ window.__ModuleLoader__.load({
             ? features.find((item) => item && String(item.id) === log.feature) || null
             : null;
 
+          function renderUpdateTab() {
+            const panel = { role: 'tabpanel', id: 'dsh-tabpanel-update', 'aria-labelledby': 'dsh-tab-update', className: 'dsh-deepfeiyu-tabpanel' };
+            const r = update;
+            let versionLine;
+            if (updateError) {
+              versionLine = h('p', { className: 'dsh-deepfeiyu-dep-failure', role: 'alert' }, updateError);
+            } else if (!r) {
+              versionLine = h('p', { className: 'dsh-deepfeiyu-hint' }, '正在检查更新…');
+            } else if (!r.git_repo) {
+              versionLine = h('p', { className: 'dsh-deepfeiyu-hint' },
+                '当前 v' + (r.version || '—') + '（解压安装的副本不做在线比对）');
+            } else if (r.error) {
+              versionLine = h('p', { className: 'dsh-deepfeiyu-dep-failure', role: 'alert' },
+                '检查更新失败：' + r.error);
+            } else if (r.has_update) {
+              versionLine = h('p', { className: 'dsh-deepfeiyu-dep-note' },
+                '发现新版本 ' + (r.remote_short || '')
+                + '（当前 v' + (r.version || '未知') + ' · ' + (r.local_short || '')
+                + '）：在项目目录运行 git pull 后重启服务。');
+            } else {
+              versionLine = h('p', { className: 'dsh-deepfeiyu-dep-note' },
+                '当前 v' + (r.version || '—') + (r.local_short ? ' · ' + r.local_short : '')
+                + '，已是最新版本');
+            }
+            return h('div', panel,
+              h('div', { className: 'dsh-deepfeiyu-dep-terminal-card' },
+                h('div', { className: 'dsh-deepfeiyu-dep-terminal-head' },
+                  h('span', { className: 'dsh-deepfeiyu-dep-terminal-title' }, '软件更新')),
+                versionLine,
+                h('div', { className: 'dsh-deepfeiyu-form-actions' },
+                  r && r.repo_url
+                    ? settingsButton('打开仓库', () => openExternal(String(r.repo_url)), {
+                      title: '在 DSH 右侧栏打开仓库页面',
+                    })
+                    : null,
+                  settingsButton(updatePending ? '检查中…' : '检查更新', () => { void checkUpdateTab(); }, {
+                    disabled: updatePending,
+                    title: '与 Gitee 仓库的 master 分支比对',
+                  }))),
+              h('div', { className: 'dsh-deepfeiyu-dep-terminal-card' },
+                h('div', { className: 'dsh-deepfeiyu-dep-terminal-head' },
+                  h('span', { className: 'dsh-deepfeiyu-dep-terminal-title' }, '使用边界')),
+                h('ul', { className: 'dsh-deepfeiyu-risklist' },
+                  h('li', null, h('strong', null, '账号风险：'),
+                    '个人微信自动化不符合《微信个人账号使用规范》，存在被限制或封禁的可能，建议用小号先验证。'),
+                  h('li', null, h('strong', null, '版本限制：'),
+                    '本地 Hook 仅支持微信 PC 3.9.x；4.x 收消息走数据库解密，发送走前台窗口自动化（会短暂占用前台）。'),
+                  h('li', null, h('strong', null, '能力边界：'),
+                    '朋友圈、支付、小程序、语音视频通话不在 Hook 能力范围内。'),
+                  h('li', null, h('strong', null, '数据：'),
+                    '所有消息与配置只存在本机 data/ 目录，不同账号的数据按账号隔离。'),
+                  h('li', null, h('strong', null, '协议：'),
+                    '使用本软件即表示同意 ',
+                    settingsButton('《最终用户许可协议》', () => openExternal(consoleBase + '/eula'), {
+                      title: '在 DSH 右侧栏打开控制台协议页',
+                    }),
+                    '；英文译本仅供参考，以中文版为准。'))));
+          }
+
           function renderAutoTab() {
             const panel = { role: 'tabpanel', id: 'dsh-tabpanel-auto', 'aria-labelledby': 'dsh-tab-auto', className: 'dsh-deepfeiyu-tabpanel' };
             if (!autoDraft) {
@@ -2076,7 +2187,8 @@ window.__ModuleLoader__.load({
             h(TabBar),
             tab === 'model' ? renderModelTab() : null,
             tab === 'auto' ? renderAutoTab() : null,
-            tab === 'deps' ? renderDepsTab() : null);
+            tab === 'deps' ? renderDepsTab() : null,
+            tab === 'update' ? renderUpdateTab() : null);
         }
 
         // 右下角心情挂饰：只读共享状态，20s 轮询；控制台不可达时显示“—”。
