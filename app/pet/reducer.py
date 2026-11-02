@@ -50,6 +50,8 @@ class PetReducer:
         self.last_chat_uid = ""       # 气泡要显示的会话；无 chat_uid 的事件不覆盖
         self.last_change_ms = now_ms()
         self._sent: dict[str, Any] | None = {"kind": "state", "state": "IDLE"}
+        self._origin = ""             # 事件来源：wechat 事件为空，DSH 事件为 "dsh"
+        self._title = ""              # DSH 会话标题，用于气泡标签
 
     def current(self) -> dict[str, Any]:
         return {"state": self.state, "activity": self.activity, "latched": self.latched}
@@ -58,6 +60,10 @@ class PetReducer:
         message: dict[str, Any] = {"kind": "state", "state": state}
         if activity:
             message["activity"] = activity
+        if self._origin:
+            message["origin"] = self._origin
+        if self._title:
+            message["title"] = self._title
         if message == self._sent:
             return []
         self.state = state
@@ -72,6 +78,8 @@ class PetReducer:
         if data_account and data_account != self.account_id:
             return []
         kind = event.get("type")
+        self._origin = str(data.get("origin") or "")
+        self._title = str(data.get("title") or "")[:40]
         if data.get("chat_uid"):
             self.last_chat_uid = str(data["chat_uid"])
 
@@ -108,10 +116,15 @@ class PetReducer:
             return []
         self.last_change_ms = self._now_ms()
         self._sent = None            # pulse 之后状态回到 IDLE，允许再发一次 IDLE 快照
-        return [{
+        message = {
             "kind": "pulse", "state": "SUCCESS", "ttlMs": PULSE_TTL,
             "resumeState": "IDLE", "resumeActivity": None,
-        }]
+        }
+        if self._origin:
+            message["origin"] = self._origin
+        if self._title:
+            message["title"] = self._title
+        return [message]
 
     def tick(self) -> list[dict[str, Any]]:
         """静默超过阈值才回落 IDLE；latched 时由 supervisor 的定时器保持现状。"""

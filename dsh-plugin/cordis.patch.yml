@@ -1,0 +1,8 @@
+- insert:
+    - id: deepfeiyu
+      name: '@local/deepfeiyu-dsh'
+      config:
+        mode: auto
+        autostart: true
+        host: 127.0.0.1
+        port: 8765

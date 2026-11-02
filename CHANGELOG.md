@@ -4,6 +4,56 @@
 
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。`v1.0.0` 是本项目的第一个发行版，`v1.0.1` 是当前发行版；其下按开发日期分组记录了从 2026-10-21 起的全部显著变更——包括后来被移除或改写的实验，阅读时以「当前版本实际包含什么」为准，功能可用性以控制台与 `docs/使用说明.md` 为准。
 
+## [未发布]
+
+### 2026-11-01 · DSH 插件（DeepSeek Harness）
+
+- 新增 `dsh-plugin/`（无构建 Cordis bundle）：Harness 侧栏「Deep肥鱼」原生面板（状态 / 账号 / 会话 / 消息 / 发送 / 今日统计 / 控制台启停 / 打开完整控制台）、8 个 `deepfeiyu_*` Agent 工具、控制台进程监管（`mode=auto` 自动拉起或 `attach` 只附着）与发送审批；面板数据经同源、复用 DSH 连接鉴权的插件路由读取。
+- `POST /api/chats/{uid}/send` 新增可选 `source` 字段：`human`（默认，控制台人工发送不排队）或 `dsh`（Harness 智能体发送，走既有发送节流队列）；其他值由 Pydantic 返回 422，空白文本仍返回 400。服务端身份闸门、`send.forbidden_wxids`、写操作本机限制与令牌校验均未改变。
+- Agent 发送跟随 Harness 权限模式：逐步审批 / 自动审批走审批弹窗（`allowed-once` 才发送），完全批准直接发送；缺少审批服务时按拒绝处理（fail closed）。
+- 新增 `tests/test_send_source.py`（来源语义与校验）与 `tests/test_dsh_plugin.py`（bundle 静态一致性：manifest、patch、locale、icon、files、8 个工具名、`node --check`）。
+- `README.md` 与 `docs/使用说明.md` 新增 DSH 插件章节：安装、配置表、安全说明、`source` 参数与故障排查。
+- 验证状态：bundle 已实机安装（`application: applied`），8 个 `deepfeiyu_*` 工具实机调用通过，面板数据与交互经用户验收；真实微信发送（本机无可用通道）与 `ask` 模式审批弹窗未实测；仓库测试覆盖 Python 侧 `source` 语义与 bundle 静态一致性。
+
+### 2026-11-01 · 可选功能依赖一键安装
+
+- 新增 `GET /api/deps/state`、`POST /api/deps/install`、`GET /api/deps/install/log`：为六个功能（核心依赖 / 微信 4.x 通道 / 朋友圈 / 桌面宠物 / WCFerry / B 站 MCP）提供依赖就绪状态、一键安装与增量安装日志。桌宠、B 站复用各自既有安装流程；pip 型的包名、requirements 路径与参数写死在 `app/deps/features.py`，不接受前端传入的包名或 pip 参数。安装全局单并发，日志写 `data/deps/install.log`；三个端点只允许本机来源。
+- 控制台「设置」页新增「可选功能依赖」卡片：状态徽标（已安装 / 缺少 N 项 / 未安装 / 不支持当前系统）、缺失项、说明、「一键安装 / 重新安装」与安装日志弹窗；核心依赖装完提示重启控制台。
+- DSH 插件新增「设置 → Deep肥鱼」依赖环境页（注册在 `settings.section`）：同样的六功能状态与一键安装、页内实时日志；控制台未运行时给出原因与「启动控制台」按钮。Host 侧新增 `POST /deepfeiyu/deps.state|deps.install|deps.log` 同源代理（复用 DSH 连接鉴权），插件本身不执行 pip/shell。
+- 新增 `tests/test_deps.py`（白名单命令、状态机、日志增量、端点与本机闸门、委托流程）与 `tests/test_deps_page.py`（页面元素、接线与转义）；`tests/test_dsh_plugin.py` 补充设置页注册与依赖路由静态断言。
+- `README.md`、`docs/使用说明.md` 与 `dsh-plugin/README.md` 同步说明。
+- 验证状态：`tests/test_deps.py`（35）、`tests/test_deps_page.py`（10）、`tests/test_dsh_plugin.py`（12）全部通过；全量 `pytest` 为 1457 passed / 9 failed / 1 skipped，9 个失败均为本机缺可选依赖或子模块（未装 PySide6、未装 wechatauto、`vendor/dsh-whale-widget` 子模块缺失），与本次改动无关。实机：控制台重启后 `/api/deps/state` 返回六项真实状态（core 6/6 已装、weixin4 1/6、moments/pet/wcferry/bili 未装），`/api/deps/install/log` 可读；网页版控制台已能取到新增卡片与弹窗资源。DSH 侧 Client 半已注册（`settings.section` occupant `deepfeiyu`，页面可见），但 Host 半 `deps.*` 路由需要一次插件重载（关/开插件或重启 Harness）才会加载——用户首次打开时看到 `未知 endpoint: deps.state`，已通过关/开插件重载；设置页按钮的实机点击验收仍待确认。真实 pip 下载安装未实测（避免在用户环境触发下载）。
+
+### 2026-11-02 · DSH 设置页：关联 DSH 插件一键安装
+
+- DSH 设置页「Deep肥鱼」新增「关联 DSH 插件」区块：可一键安装上游桌宠 `dsh-dafeiyu` 与心情 `dsh-feiyu-mood` 的 npm 最新版。前端只能传白名单 id，包名与安装选项写死在 `dsh-plugin/lib/dsh-plugins.js`；点击前二次确认并说明会执行第三方代码；安装是 Host 后台任务，设置页轮询进度并显示 `application` 结论。
+- Host 侧新增 `POST /deepfeiyu/dshPlugins.state|dshPlugins.install`，经 `ctx.get('pluginManager')` 调用 DSH 插件管理服务；服务缺失时区块显示不可用，不影响面板其他功能。已安装版本不自动卸载重装（HMR 会拒绝覆盖），更新仍走 DSH 插件页。
+- 这两个上游插件由 Harness 会话驱动，与控制台里由微信状态驱动的桌宠/心情是两套，会并行存在。
+- 补充：白名单从 2 个扩展到 3 个，加入本仓库同样引用过的上游「余额小鲸鱼」`dsh-whale-widget`（约 7MB；代码 MIT，素材/图标按上游「as-is 仅用于运行本插件」声明），它读 Harness 侧用量，与控制台里的余额挂件是两套。
+- `tests/test_dsh_plugin.py` 补充白名单、路由只转发 id、Client 二次确认与 README 说明的静态断言。
+- 验证状态：`tests/test_dsh_plugin.py` 16 passed；`node --check` 覆盖 `client.js` / `lib/route.js` / `lib/dsh-plugins.js`；另用临时假 ctx 脚本（未入库）验证了白名单安装、未知 id 拒绝、已安装拒绝、缺 `pluginManager` 时的降级等 17 项断言。插件已通过「关/开一次」重载，控制台随之重启并恢复 running；`settings.section` occupant `deepfeiyu` 仍在。**验证期间没有实际下载/安装任何第三方 bundle**；设置页的真实点击与装后效果待用户确认。
+
+### 2026-11-02 · 完整设置缝进插件设置（P1）
+
+- DSH「设置 → Deep肥鱼」改为页内标签：**模型与人格 / 自动回复 / 依赖与融合 / 更新与边界**（P2 将加入账号与通道）。依赖与融合三块（可选功能依赖、关联 DSH 插件、心情与桌宠融合）原样迁入「依赖与融合」标签，懒加载改为"打开标签才拉、之后只轮询当前标签"，切标签不再打断安装日志轮询。
+- Host 新增 8 个同源代理端点：`settings.get / settings.put / settings.testAi / personas.list / personas.add / personas.delete / personas.syncWiki / update.check`；`settings.put` 只接受对象形态的窄补丁，拒绝把任意值透传给配置接口。
+- 模型与人格标签：模型档切换（切档前先落回未保存的地址/模型，与控制台一致）、Base URL/模型/Key/温度、视觉/联网/记忆开关、记忆 v2 参数、Embedding、系统提示词、人格名、人格预设（应用/保存/删除/图集同步）、测试连接。
+- 自动回复标签：总开关、群聊 @、拍一拍、白/黑名单、间隔/日上限、接管暂停、前缀/超时/兜底、拆分回复、表情包与串子、跨对话；保存只发本页字段的窄补丁，与模型草稿互不覆盖。
+- 更新与边界标签：首次打开自动检查一次后仅手动（不每 4s 打 Gitee）、仓库入口走宿主侧栏浏览器、使用边界静态文案与协议入口。
+- 密钥契约不变：API Key 只回显掩码与占位符、空值不覆盖；掩码串原样回传由控制台 `_unmask_secrets` 还原——新增 `tests/test_dsh_settings_contract.py` 把这三条与端点登记固化成测试。
+- `README.md`、`dsh-plugin/README.md`、`docs/使用说明.md` 同步。
+- 验证状态：`tests/test_dsh_settings_contract.py` 4 passed、`tests/test_dsh_plugin.py` 31 passed；全量 `pytest` 为 1496 passed / 6 failed / 0 skipped，6 个失败均为基线已知环境失败（缺 `vendor/dsh-feiyu-pet`、`vendor/dsh-whale-widget` 子模块），0 个新增失败；`node --check` 全过；假 ctx 冒烟 7 项断言全过。**真实安装/切档/保存未在浏览器里人工点击验收**。
+
+### 2026-11-02 · 桌宠与心情双端融合
+
+- 控制台新增 `app/dsh_bridge/` 与 `/api/dsh/*` 六个端点（state / config / mood-event / pet-event / timeline / judge-prompt）：DSH 绑定一个微信账号后，Harness 与微信共享同一份心情；判断结果由 DSH 产出、控制台统一校验落库（`source=dsh`），不新增数据库表/列。
+- `app/mood/service.py` 抽出 `apply_judged_delta()`，微信判断与 DSH 回写共用显著阈值、额度与衰减规则；`inject_block` 增加跨端来历开关（默认开、群聊永远只说心情、微信来历永不进 Harness）；`state_payload` 暴露 `lastSource`。
+- 桌宠：`/api/dsh/pet-event` 把 Harness 工具/回合事件转成既有 bus 事件；`PetReducer` 接受 `origin/title`，气泡标注「Harness · 会话标题」；一只桌宠同时反映两端活动。
+- DSH 插件：Host 监听 `session/event`、`agent/error`，回合结束时用默认模型判断并写回（同账号 ≥90s、每日 40 次限流），`systemPrompt.context` 注入共享心情；Client 设置页新增「心情与桌宠（融合）」区块与右下角 `shell.overlay` 挂饰（20s 轮询）。控制台停机时静默丢弃，不阻塞 Harness；卸载时清理监听、定时器与提示词上下文。
+- 新增 `tests/test_dsh_bridge.py`（15 个用例）；`tests/test_pet_bubble.py` 补来源标签；`tests/test_dsh_plugin.py` 补融合静态断言（22 个）。
+- 规格与计划：`docs/superpowers/specs/2026-11-02-pet-mood-fusion-design.md`、`docs/superpowers/plans/2026-11-02-pet-mood-fusion.md`。
+- 验证状态：`tests/test_dsh_bridge.py`、`tests/test_dsh_plugin.py`、`tests/test_pet_bubble.py` 合计 50 passed；`node --check` 覆盖 `client.js` / `lib/fusion.js` / `lib/route.js` / `lib/ops.js` / `index.js`；全量 `pytest` 为 1487 passed / 6 failed / 0 skipped，6 个失败均为本机环境（5 个 `test_pet_supervisor` 缺 PySide6、1 个 `test_whale_widget` 缺 `vendor/dsh-whale-widget` 子模块）；此前 `test_weixin4_send` / `test_wxgf_frames` 的失败因本机已装 `wechatauto` 而消失。实机：控制台重启后 `/api/dsh/state` 与 `/api/dsh/judge-prompt` 返回真实数据（未绑定→回落当前账号、心情未启用、宠物未运行）；插件关/开后控制台恢复 running，`settings.section` 与 `shell.overlay`（`deepfeiyu-mood`）注册可见。真实 Harness 回合触发判断、挂饰点击与微信注入文案未实测（需要真实会话/浏览器/微信通道）。
+
 ## [1.0.1] - 2026-11-01
 
 > 本版为 **v1.0.1**：内容等同原计划的 v1.0.0 重新发行，包含法律合规、安全修复、非商业许可、协作规则与发行免责声明。GitHub 的 `v1.0.0` 是 immutable release，tag 无法移动且不可复用，因此当前快照以 `v1.0.1` 发布；两个镜像的 `v1.0.0` 均保留为原始提交。

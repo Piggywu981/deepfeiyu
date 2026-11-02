@@ -1755,3 +1755,32 @@ button.bill-chip.muted:hover { color: #8a94a6; border-color: var(--line); backgr
   #page-proactive .proactive-table th,
   #page-proactive .proactive-table td { padding: 5px 7px; }
 }
+
+/* ---- 设置页：可选功能依赖（视觉沿用 .cap-item 的白底描边卡片） ---- */
+.deps-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.dep-row {
+  display: flex; align-items: flex-start; gap: 12px;
+  border: 1px solid var(--line); border-radius: 10px;
+  padding: 10px 12px; background: #fff;
+}
+.dep-main { flex: 1; min-width: 0; }
+.dep-name { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.dep-name strong { font-size: 13px; font-weight: 600; }
+.dep-badge {
+  font-size: 11px; border-radius: 20px; padding: 2px 8px;
+  border: 1px solid var(--line-soft); background: #f3f6f9; color: var(--ink-2);
+}
+.dep-badge.ok { background: var(--green-l); border-color: #c8efdb; color: var(--green-d); }
+.dep-badge.busy { background: #eef4ff; border-color: #d6e4ff; color: var(--blue); }
+.dep-badge.off { background: #fff7ed; border-color: #fde6c8; color: #c2410c; }
+.dep-badge.no { background: #eef1f5; border-color: var(--line-soft); color: var(--muted); }
+.dep-desc { margin-top: 5px; font-size: 12px; line-height: 1.6; color: var(--muted); word-break: break-word; }
+.dep-missing { margin-top: 5px; font-size: 12px; line-height: 1.6; color: #b45309; word-break: break-word; }
+.dep-missing code { background: #fef3c7; color: #92400e; }
+.dep-note { margin-top: 4px; font-size: 11.5px; line-height: 1.6; color: var(--muted); word-break: break-word; }
+.dep-err { margin-top: 4px; font-size: 11.5px; line-height: 1.6; color: var(--red); word-break: break-word; }
+.dep-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; flex: 0 0 auto; }
+@media (max-width: 600px) {
+  .dep-row { flex-wrap: wrap; }
+  .dep-actions { flex-direction: row; align-items: center; width: 100%; justify-content: flex-end; }
+}

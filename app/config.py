@@ -154,6 +154,13 @@ DEFAULTS: dict[str, Any] = {
         "showChatName": True,
         "showChatDigest": False,
     },
+    # DSH 融合：绑定一个微信账号，共享心情与桌宠；编辑入口在 DSH 设置页。
+    "dsh": {
+        "account_id": "",
+        "judge_enabled": True,
+        "pet_events_enabled": True,
+        "cross_reason_enabled": True,
+    },
     # 主动搭话（Phase 3）：默认关，账号级参数见 app/proactive/settings.py。
     "proactive": {
         "enabled": False,
