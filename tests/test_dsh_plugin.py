@@ -270,6 +270,22 @@ def test_settings_page_tab_shell():
     assert "Deep肥鱼 · 依赖环境" not in source
 
 
+def test_model_tab_present():
+    source = (PKG / "client.js").read_text(encoding="utf-8")
+    for token in ("'模型与人格'", "renderModelTab", "loadSettingsTab", "saveSettingsTab",
+                  "switchProfile", "settingsPatchFromDraft", "draftFromSettings",
+                  "testAiConnection", "applyPreset", "savePresetAs", "deletePreset",
+                  "syncWikiPresets", "aria-pressed", "EMBEDDING_API_KEY",
+                  "function Field", "function ToggleRow"):
+        assert token in source, f"client.js 缺少 {token}"
+    # 保存必须走窄补丁（patch 包装），不得整体回传 settings.get 的结果
+    assert "call('settings.put', { patch: settingsPatchFromDraft(draft)" in source
+    # 草稿只在为空时初始化，4s 轮询不得覆盖用户正在编辑的输入
+    assert "prev || draftFromSettings" in source
+    # API Key 草稿初值为空：掩码只做占位，不回填
+    assert "api_key: ''," in source
+
+
 def test_js_syntax():
     node = shutil.which("node")
     if not node:

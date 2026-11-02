@@ -219,7 +219,7 @@ window.__ModuleLoader__.load({
 `;
 
     // 设置页标签：P1 四个，P2 会插入「账号与通道」（规格 §5）。
-    const SETTINGS_TABS = [['deps', '依赖与融合']];
+    const SETTINGS_TABS = [['model', '模型与人格'], ['deps', '依赖与融合']];
 
     // ---------------------------------------------------------------- 纯展示辅助
 
@@ -918,6 +918,48 @@ window.__ModuleLoader__.load({
         // ------------------------------------------------------ 设置页：依赖环境
         // 挂在 settings.section：列出控制台六个可选功能依赖的状态，支持一键安装并实时看日志。
         // 控制台未运行时 deps.state 直接失败（错误信息已含“请先启动控制台”），页内给出启动入口，不静默失败。
+        // 设置表单控件：只做展示，状态一律留在各标签的 draft 里。
+        function Field({ label, hint, children }) {
+          return h('label', { className: 'dsh-deepfeiyu-field' },
+            h('span', null, label),
+            children,
+            hint ? h('em', null, hint) : null);
+        }
+
+        function TextInput({ value, onChange, placeholder, type, min, max }) {
+          return h('input', {
+            type: type || 'text',
+            value,
+            placeholder,
+            min,
+            max,
+            onChange: (event) => onChange(event.target.value),
+          });
+        }
+
+        function TextArea({ value, onChange, rows, placeholder }) {
+          return h('textarea', {
+            rows: rows || 3,
+            value,
+            placeholder,
+            onChange: (event) => onChange(event.target.value),
+          });
+        }
+
+        function ToggleRow({ label, hint, checked, onChange }) {
+          return h('div', { className: 'dsh-deepfeiyu-toggle-row' },
+            h('div', { className: 'dsh-deepfeiyu-toggle-text' },
+              h('strong', null, label),
+              hint ? h('em', null, hint) : null),
+            h('button', {
+              type: 'button',
+              role: 'switch',
+              'aria-checked': Boolean(checked),
+              className: 'dsh-deepfeiyu-btn' + (checked ? ' dsh-deepfeiyu-btn-on' : ''),
+              onClick: () => onChange(!checked),
+            }, checked ? '开' : '关'));
+        }
+
         function DeepFeiyuSettingsPage() {
           // 组件卸载后异步回调不再 setState；日志定时器也必须清掉，否则会持续请求已关闭的控制台。
           const mounted = React.useRef(true);
@@ -946,6 +988,18 @@ window.__ModuleLoader__.load({
           const [fusionPending, setFusionPending] = React.useState(false);
           // 页内标签：P1 四个，随各任务加入；默认依赖与融合保持原习惯（规格 §7）。
           const [tab, setTab] = React.useState('deps');
+          // 模型与人格标签：settings 是只读快照，draft 是表单草稿；
+          // 草稿只在首次加载或保存回执时重建，4s 轮询不会覆盖正在编辑的内容。
+          const [settings, setSettings] = React.useState(null);
+          const [settingsError, setSettingsError] = React.useState('');
+          const [settingsPending, setSettingsPending] = React.useState(false);
+          const [settingsFlash, setSettingsFlash] = React.useState('');
+          const [draft, setDraft] = React.useState(null);
+          const [testResult, setTestResult] = React.useState('');
+          const [testPending, setTestPending] = React.useState(false);
+          const [presets, setPresets] = React.useState([]);
+          const [presetName, setPresetName] = React.useState('');
+          const [presetPending, setPresetPending] = React.useState(false);
 
           function clearLogTimer() {
             if (logTimer.current) {
@@ -1143,6 +1197,229 @@ window.__ModuleLoader__.load({
             }
           }
 
+          // ------------------------------------------------ 模型与人格
+          function draftFromSettings(s) {
+            const ai = s.ai || {};
+            const mem = s.memory || {};
+            const emb = mem.embedding || {};
+            return {
+              base_url: ai.base_url || '',
+              api_key: '',   // 只写：掩码不回填到输入框，占位符展示 ai.api_key
+              model: ai.model || '',
+              temperature: String(ai.temperature ?? 0.7),
+              vision_enabled: !!ai.vision_enabled,
+              web_enabled: ai.web_enabled !== false,
+              memory_enabled: ai.memory_enabled !== false,
+              system_prompt: ai.system_prompt || '',
+              persona_name: ai.persona_name || '',
+              memory_profile_enabled: mem.profile_enabled !== false,
+              memory_context_chars: String(mem.context_chars ?? 1200),
+              memory_max_items: String(mem.max_items ?? 24),
+              memory_compress_after: String(mem.compress_after_messages ?? 24),
+              embedding_enabled: !!emb.enabled,
+              embedding_base_url: emb.base_url || '',
+              embedding_model: emb.model || '',
+              embedding_key_env: emb.key_env || 'EMBEDDING_API_KEY',
+            };
+          }
+
+          function settingsPatchFromDraft(d) {
+            return {
+              ai: {
+                base_url: d.base_url.trim(),
+                api_key: d.api_key.trim(),   // 空串 = 控制台不覆盖真值
+                model: d.model.trim(),
+                temperature: parseFloat(d.temperature) || 0.7,
+                vision_enabled: d.vision_enabled,
+                web_enabled: d.web_enabled,
+                memory_enabled: d.memory_enabled,
+                system_prompt: d.system_prompt.trim(),
+                persona_name: d.persona_name.trim(),
+              },
+              memory: {
+                profile_enabled: d.memory_profile_enabled,
+                context_chars: parseInt(d.memory_context_chars, 10) || 1200,
+                max_items: parseInt(d.memory_max_items, 10) || 24,
+                compress_after_messages: parseInt(d.memory_compress_after, 10) || 24,
+                embedding: {
+                  enabled: d.embedding_enabled,
+                  base_url: d.embedding_base_url.trim(),
+                  model: d.embedding_model.trim(),
+                  key_env: d.embedding_key_env.trim() || 'EMBEDDING_API_KEY',
+                },
+              },
+            };
+          }
+
+          async function loadSettingsTab() {
+            try {
+              const value = await call('settings.get', {}, 15000);
+              if (!mounted.current) return;
+              setSettings(value);
+              // 只在草稿为空（首次进入/保存回执后已由保存函数重建）时初始化，轮询不覆盖编辑
+              setDraft((prev) => prev || draftFromSettings(value));
+              setSettingsError('');
+            } catch (error0) {
+              if (mounted.current) setSettingsError(errorMessage(error0));
+            }
+          }
+
+          async function saveSettingsTab() {
+            if (!draft || settingsPending) return;
+            setSettingsPending(true);
+            setSettingsError('');
+            try {
+              const value = await call('settings.put', { patch: settingsPatchFromDraft(draft) }, 15000);
+              if (!mounted.current) return;
+              const saved = value && typeof value === 'object' ? value.settings : null;
+              if (saved) {
+                setSettings(saved);
+                setDraft(draftFromSettings(saved));
+              }
+              setSettingsFlash('已保存 ' + new Date().toLocaleTimeString());
+            } catch (error0) {
+              if (mounted.current) setSettingsError(errorMessage(error0));
+            } finally {
+              if (mounted.current) setSettingsPending(false);
+            }
+          }
+
+          async function switchProfile(id) {
+            if (!draft || !settings || settingsPending) return;
+            const ai = settings.ai || {};
+            if (!id || id === (ai.active_profile || '')) return;
+            const base = draft.base_url.trim();
+            const model = draft.model.trim();
+            setSettingsPending(true);
+            setSettingsError('');
+            try {
+              // 与控制台一致：未保存的地址/模型先落回当前档，再切档，避免手改内容被吞
+              if ((base && base !== (ai.base_url || '')) || (model && model !== (ai.model || ''))) {
+                const flush = {};
+                if (base) flush.base_url = base;
+                if (model) flush.model = model;
+                await call('settings.put', { patch: { ai: flush } }, 15000);
+              }
+              const value = await call('settings.put', { patch: { ai: { active_profile: id } } }, 15000);
+              if (!mounted.current) return;
+              const saved = value && typeof value === 'object' ? value.settings : null;
+              if (saved) {
+                setSettings(saved);
+                setDraft(draftFromSettings(saved));
+              }
+              setSettingsFlash('已切到「' + id + '」');
+            } catch (error0) {
+              if (mounted.current) setSettingsError(errorMessage(error0));
+            } finally {
+              if (mounted.current) setSettingsPending(false);
+            }
+          }
+
+          async function testAiConnection() {
+            if (!draft || testPending) return;
+            setTestPending(true);
+            setTestResult('正在测试…');
+            try {
+              const value = await call('settings.testAi', {
+                base_url: draft.base_url.trim(),
+                api_key: draft.api_key.trim() || undefined,
+                model: draft.model.trim(),
+              }, 30000);
+              if (!mounted.current) return;
+              const latency = value && Number.isFinite(Number(value.latency_ms))
+                ? Number(value.latency_ms) : 0;
+              const reply = value && value.reply ? value.reply : 'ok';
+              setTestResult('连接正常 · ' + latency + 'ms · ' + reply);
+              // 控制台 test-ai 会先落盘再测试：刷新快照以更新「已配置」等标记
+              await loadSettingsTab();
+            } catch (error0) {
+              if (mounted.current) setTestResult(errorMessage(error0));
+            } finally {
+              if (mounted.current) setTestPending(false);
+            }
+          }
+
+          async function loadPresets() {
+            try {
+              const value = await call('personas.list', {}, 15000);
+              if (!mounted.current) return;
+              setPresets(value && Array.isArray(value.personas) ? value.personas : []);
+            } catch {
+              // 预设读不到只置空：该区显示 0 份，不影响其它字段编辑
+              if (mounted.current) setPresets([]);
+            }
+          }
+
+          function applyPreset(name) {
+            const found = presets.find((item) => item.name === name);
+            if (!found || !draft) return;
+            setPresetName(name);
+            setDraft((prev) => (prev
+              ? { ...prev, system_prompt: found.system_prompt || '', persona_name: found.persona_name || '' }
+              : prev));
+            setSettingsFlash('已应用预设「' + name + '」，点「保存设置」生效');
+          }
+
+          async function savePresetAs() {
+            const name = presetName.trim();
+            if (!draft || presetPending) return;
+            if (!name) {
+              setSettingsError('先在预设名称里写一个名字');
+              return;
+            }
+            const exists = presets.some((item) => item.name === name);
+            if (exists && !window.confirm('覆盖已有预设「' + name + '」？')) return;
+            setPresetPending(true);
+            setSettingsError('');
+            try {
+              await call('personas.add', {
+                name,
+                persona_name: draft.persona_name.trim(),
+                system_prompt: draft.system_prompt.trim(),
+              }, 15000);
+              await loadPresets();
+              setSettingsFlash('已保存预设「' + name + '」');
+            } catch (error0) {
+              if (mounted.current) setSettingsError(errorMessage(error0));
+            } finally {
+              if (mounted.current) setPresetPending(false);
+            }
+          }
+
+          async function deletePreset(name) {
+            if (!name || presetPending) return;
+            if (!window.confirm('删除人格预设「' + name + '」？')) return;
+            setPresetPending(true);
+            setSettingsError('');
+            try {
+              await call('personas.delete', { name }, 15000);
+              if (presetName === name) setPresetName('');
+              await loadPresets();
+              setSettingsFlash('已删除预设「' + name + '」');
+            } catch (error0) {
+              if (mounted.current) setSettingsError(errorMessage(error0));
+            } finally {
+              if (mounted.current) setPresetPending(false);
+            }
+          }
+
+          async function syncWikiPresets() {
+            if (presetPending) return;
+            setPresetPending(true);
+            setSettingsError('');
+            try {
+              const value = await call('personas.syncWiki', {}, 60000);
+              await loadPresets();
+              const created = value && Number.isFinite(Number(value.created)) ? Number(value.created) : 0;
+              const updated = value && Number.isFinite(Number(value.updated)) ? Number(value.updated) : 0;
+              setSettingsFlash('图集预设同步：新建 ' + created + ' 份、更新 ' + updated + ' 份');
+            } catch (error0) {
+              if (mounted.current) setSettingsError(errorMessage(error0));
+            } finally {
+              if (mounted.current) setPresetPending(false);
+            }
+          }
+
           async function installFeature(feature) {
             const id = feature && feature.id ? String(feature.id) : '';
             if (!id || installPending || (deps && deps.installing)) return;
@@ -1185,6 +1462,10 @@ window.__ModuleLoader__.load({
                 void loadDeps();
                 void loadDshPlugins();
                 void loadFusion();
+              }
+              if (tab === 'model') {
+                void loadSettingsTab();
+                void loadPresets();
               }
             };
             tick();
@@ -1460,6 +1741,137 @@ window.__ModuleLoader__.load({
             ? features.find((item) => item && String(item.id) === log.feature) || null
             : null;
 
+          function renderModelTab() {
+            const panel = { role: 'tabpanel', id: 'dsh-tabpanel-model', 'aria-labelledby': 'dsh-tab-model', className: 'dsh-deepfeiyu-tabpanel' };
+            const ai = settings ? settings.ai || {} : null;
+            const profiles = ai && Array.isArray(ai.profiles) ? ai.profiles : [];
+            const activeId = ai ? ai.active_profile || '' : '';
+            if (!draft) {
+              return h('div', panel,
+                settingsError
+                  ? h('div', { className: 'dsh-deepfeiyu-errorbar', role: 'alert' },
+                    h('span', { className: 'dsh-deepfeiyu-errorbar-text' }, settingsError),
+                    settingsButton('重试', () => { void loadSettingsTab(); }, {}))
+                  : h('p', { className: 'dsh-deepfeiyu-hint' }, '正在读取设置…'));
+            }
+            const set = (key, value) => setDraft((prev) => (prev ? { ...prev, [key]: value } : prev));
+            const active = profiles.find((item) => item.id === activeId) || null;
+            const keyEnv = (active && active.key_env) || 'DEEPSEEK_API_KEY';
+            return h('div', panel,
+              settingsError
+                ? h('div', { className: 'dsh-deepfeiyu-errorbar', role: 'alert' },
+                  h('span', { className: 'dsh-deepfeiyu-errorbar-text' }, settingsError),
+                  settingsButton('关闭', () => setSettingsError(''), { title: '收起错误提示' }))
+                : null,
+              h('div', { className: 'dsh-deepfeiyu-dep-terminal-card' },
+                h('div', { className: 'dsh-deepfeiyu-dep-terminal-head' },
+                  h('span', { className: 'dsh-deepfeiyu-dep-terminal-title' }, '模型档'),
+                  h('span', { className: 'dsh-deepfeiyu-badge' }, ai && ai.configured ? '已配置' : '未配置')),
+                h('div', { className: 'dsh-deepfeiyu-chips' },
+                  profiles.map((item) => h('button', {
+                    key: item.id,
+                    type: 'button',
+                    className: 'dsh-deepfeiyu-chip'
+                      + (item.id === activeId ? ' on' : '')
+                      + (item.configured ? '' : ' warn'),
+                    'aria-pressed': item.id === activeId,
+                    disabled: settingsPending,
+                    title: [item.description, item.base_url, item.model,
+                      '密钥：.env 的 ' + (item.key_env || 'DEEPSEEK_API_KEY'),
+                    ].filter(Boolean).join(' · '),
+                    onClick: () => { void switchProfile(item.id); },
+                  }, (item.name || item.id) + (item.configured ? '' : ' · 未填 Key')))),
+                active
+                  ? h('p', { className: 'dsh-deepfeiyu-hint' },
+                    (active.name || active.id) + '：' + (active.description || '')
+                    + '（密钥读 .env 的 ' + keyEnv + '）')
+                  : null,
+                h('div', { className: 'dsh-deepfeiyu-grid' },
+                  h(Field, { label: 'Base URL' },
+                    h(TextInput, { value: draft.base_url, onChange: (v) => set('base_url', v), placeholder: 'https://api.deepseek.com' })),
+                  h(Field, { label: 'API Key', hint: '只写入项目根 .env 的 ' + keyEnv + '，不进 data/config.json；留空不改' },
+                    h(TextInput, { value: draft.api_key, onChange: (v) => set('api_key', v), placeholder: ai && ai.api_key ? ai.api_key : 'sk-…' })),
+                  h(Field, { label: '模型名', hint: '这一档实际发给服务商的模型名，改了只覆盖这一档' },
+                    h(TextInput, { value: draft.model, onChange: (v) => set('model', v), placeholder: 'deepseek-chat' })),
+                  h(Field, { label: '温度' },
+                    h(TextInput, { type: 'number', value: draft.temperature, onChange: (v) => set('temperature', v), min: 0, max: 2 }))),
+                h('div', { className: 'dsh-deepfeiyu-form-actions' },
+                  h('span', { className: 'dsh-deepfeiyu-hint' }, testResult),
+                  settingsButton(testPending ? '测试中…' : '测试连接', () => { void testAiConnection(); }, {
+                    disabled: testPending,
+                    title: '用当前表单值先落盘，再发一次两字小请求测连通与延迟',
+                  }))),
+              h('div', { className: 'dsh-deepfeiyu-dep-terminal-card' },
+                h('div', { className: 'dsh-deepfeiyu-dep-terminal-head' },
+                  h('span', { className: 'dsh-deepfeiyu-dep-terminal-title' }, '能力与记忆')),
+                h(ToggleRow, { label: '启用视觉理解', hint: '多模态识图', checked: draft.vision_enabled, onChange: (v) => set('vision_enabled', v) }),
+                h(ToggleRow, { label: '启用联网搜索', hint: 'AI 可搜索网页并抓取正文', checked: draft.web_enabled, onChange: (v) => set('web_enabled', v) }),
+                h(ToggleRow, { label: '启用长期记忆', checked: draft.memory_enabled, onChange: (v) => set('memory_enabled', v) }),
+                h(ToggleRow, { label: '注入人物档案', hint: '按重要度/相关度把档案带进提示词', checked: draft.memory_profile_enabled, onChange: (v) => set('memory_profile_enabled', v) }),
+                h('div', { className: 'dsh-deepfeiyu-grid' },
+                  h(Field, { label: '记忆上下文长度（字符）' },
+                    h(TextInput, { type: 'number', value: draft.memory_context_chars, onChange: (v) => set('memory_context_chars', v), min: 200 })),
+                  h(Field, { label: '每层最大条数' },
+                    h(TextInput, { type: 'number', value: draft.memory_max_items, onChange: (v) => set('memory_max_items', v), min: 1 })),
+                  h(Field, { label: '压缩阈值（条）' },
+                    h(TextInput, { type: 'number', value: draft.memory_compress_after, onChange: (v) => set('memory_compress_after', v), min: 1 })))),
+              h('div', { className: 'dsh-deepfeiyu-dep-terminal-card' },
+                h('div', { className: 'dsh-deepfeiyu-dep-terminal-head' },
+                  h('span', { className: 'dsh-deepfeiyu-dep-terminal-title' }, '语义检索（Embedding）')),
+                h(ToggleRow, { label: '启用语义检索', hint: '需要一个 OpenAI 兼容的 /embeddings 接口', checked: draft.embedding_enabled, onChange: (v) => set('embedding_enabled', v) }),
+                h('div', { className: 'dsh-deepfeiyu-grid' },
+                  h(Field, { label: 'Embedding 接口地址' },
+                    h(TextInput, { value: draft.embedding_base_url, onChange: (v) => set('embedding_base_url', v), placeholder: 'https://api.deepseek.com' })),
+                  h(Field, { label: 'Embedding 模型' },
+                    h(TextInput, { value: draft.embedding_model, onChange: (v) => set('embedding_model', v), placeholder: 'text-embedding-v3' })),
+                  h(Field, { label: '密钥环境变量', hint: '只读环境变量，不写进 config.json' },
+                    h(TextInput, { value: draft.embedding_key_env, onChange: (v) => set('embedding_key_env', v), placeholder: 'EMBEDDING_API_KEY' })))),
+              h('div', { className: 'dsh-deepfeiyu-dep-terminal-card' },
+                h('div', { className: 'dsh-deepfeiyu-dep-terminal-head' },
+                  h('span', { className: 'dsh-deepfeiyu-dep-terminal-title' }, '人设与人格预设')),
+                h(Field, { label: '系统提示词（全局默认）', hint: '各账号可在账号表单里单独覆盖（P2 标签）' },
+                  h(TextArea, { value: draft.system_prompt, onChange: (v) => set('system_prompt', v), rows: 4, placeholder: '你是一个…' })),
+                h(Field, { label: '人格名', hint: 'AI 的人格称呼，随人设一起注入提示词' },
+                  h(TextInput, { value: draft.persona_name, onChange: (v) => set('persona_name', v), placeholder: 'Deep肥鱼' })),
+                h('div', { className: 'dsh-deepfeiyu-grid' },
+                  h(Field, { label: '选择已保存的人格' },
+                    h('select', {
+                      value: presetName,
+                      onChange: (event) => setPresetName(event.target.value),
+                    },
+                    h('option', { value: '' }, '— 选择已保存的人格 —'),
+                    presets.map((item) => h('option', { key: item.name, value: item.name },
+                      (item.persona_name && item.persona_name !== item.name
+                        ? item.name + '（' + item.persona_name + '）' : item.name)
+                      + (item.source === 'ai-moe-wiki' ? '·图集' : ''))))),
+                  h(Field, { label: '预设名称', hint: '选择或新建时用这个名字' },
+                    h(TextInput, { value: presetName, onChange: setPresetName, placeholder: '例如：工作号人格' }))),
+                h('div', { className: 'dsh-deepfeiyu-form-actions' },
+                  h('span', { className: 'dsh-deepfeiyu-badge' }, presets.length + ' 份'),
+                  settingsButton('应用所选', () => applyPreset(presetName.trim()), {
+                    disabled: !presetName.trim() || presetPending,
+                    title: '把预设填入上方提示词与人格名（需再点保存设置）',
+                  }),
+                  settingsButton(presetPending ? '处理中…' : '保存为预设', () => { void savePresetAs(); }, {
+                    disabled: presetPending,
+                    title: '把当前提示词与人格名存成预设；同名先确认覆盖',
+                  }),
+                  settingsButton('删除', () => { void deletePreset(presetName.trim()); }, {
+                    disabled: presetPending || !presetName.trim(),
+                  }),
+                  settingsButton('从图集同步', () => { void syncWikiPresets(); }, {
+                    disabled: presetPending,
+                    title: '从 ai-moe-wiki 图集生成/更新预设，跳过用户自建同名',
+                  }))),
+              h('div', { className: 'dsh-deepfeiyu-form-actions' },
+                h('span', { className: 'dsh-deepfeiyu-hint' }, settingsFlash),
+                settingsButton(settingsPending ? '保存中…' : '保存设置', () => { void saveSettingsTab(); }, {
+                  primary: true,
+                  disabled: settingsPending || !draft,
+                  title: '只提交本页字段的窄补丁，其它配置不受影响',
+                })));
+          }
+
           function renderDepsTab() {
             return h('div', {
               role: 'tabpanel',
@@ -1485,6 +1897,7 @@ window.__ModuleLoader__.load({
               h('h2', { className: 'dsh-deepfeiyu-settings-title' }, 'Deep肥鱼 · 设置'),
               h('p', { className: 'dsh-deepfeiyu-meta' }, '控制台的设置、依赖与融合；状态以控制台为准，保存后就地刷新。')),
             h(TabBar),
+            tab === 'model' ? renderModelTab() : null,
             tab === 'deps' ? renderDepsTab() : null);
         }
 
