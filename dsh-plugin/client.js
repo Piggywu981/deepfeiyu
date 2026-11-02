@@ -219,7 +219,7 @@ window.__ModuleLoader__.load({
 `;
 
     // 设置页标签：P1 四个，P2 会插入「账号与通道」（规格 §5）。
-    const SETTINGS_TABS = [['model', '模型与人格'], ['deps', '依赖与融合']];
+    const SETTINGS_TABS = [['model', '模型与人格'], ['auto', '自动回复'], ['deps', '依赖与融合']];
 
     // ---------------------------------------------------------------- 纯展示辅助
 
@@ -1000,6 +1000,10 @@ window.__ModuleLoader__.load({
           const [presets, setPresets] = React.useState([]);
           const [presetName, setPresetName] = React.useState('');
           const [presetPending, setPresetPending] = React.useState(false);
+          // 自动回复标签：独立草稿（与模型草稿互不覆盖），错误/保存中状态与模型标签共用
+          // ——两者读写同一个 GET/PUT /api/settings，同一个错误态在两个标签里各显各的。
+          const [autoDraft, setAutoDraft] = React.useState(null);
+          const [autoPending, setAutoPending] = React.useState(false);
 
           function clearLogTimer() {
             if (logTimer.current) {
@@ -1258,6 +1262,7 @@ window.__ModuleLoader__.load({
               setSettings(value);
               // 只在草稿为空（首次进入/保存回执后已由保存函数重建）时初始化，轮询不覆盖编辑
               setDraft((prev) => prev || draftFromSettings(value));
+              setAutoDraft((prev) => prev || autoFromSettings(value));
               setSettingsError('');
             } catch (error0) {
               if (mounted.current) setSettingsError(errorMessage(error0));
@@ -1420,6 +1425,105 @@ window.__ModuleLoader__.load({
             }
           }
 
+          // ------------------------------------------------ 自动回复
+          function splitLines(value) {
+            return String(value || '')
+              .split('\n')
+              .map((item) => item.trim())
+              .filter(Boolean);
+          }
+
+          function autoFromSettings(s) {
+            const a = s.auto || {};
+            const ai = s.ai || {};
+            const c = s.cross || {};
+            return {
+              enabled: !!a.enabled,
+              default_ai_on: !!a.default_ai_on,
+              group_need_at: !!a.group_need_at,
+              emoji_reply: a.emoji_reply !== false,
+              pat_reply: a.pat_reply !== false,
+              instant_reply: !!a.instant_reply,
+              only_whitelist: !!a.only_whitelist,
+              whitelist: (a.whitelist || []).join('\n'),
+              blacklist: (a.blacklist || []).join('\n'),
+              min_interval_sec: String(a.min_interval_sec ?? 3),
+              daily_limit: String(a.daily_limit ?? 300),
+              takeover_pause_min: String(a.takeover_pause_min ?? 10),
+              prefix: a.prefix || '',
+              reply_timeout_sec: String(a.reply_timeout_sec ?? 60),
+              timeout_fallback: a.timeout_fallback || '',
+              split_reply: !!a.split_reply,
+              emoji_with_reply: ai.emoji_with_reply !== false,
+              emoji_auto_collect: ai.emoji_auto_collect !== false,
+              wiki_emoji_only: !!ai.wiki_emoji_only,
+              chuanzi_mode: !!ai.chuanzi_mode,
+              chuanzi_site_emoji: !!ai.chuanzi_site_emoji,
+              cross_enabled: c.enabled !== false,
+              cross_relay: c.relay !== false,
+              cross_visit: c.visit !== false,
+              cross_daily_limit: String(c.daily_limit ?? 30),
+              cross_visit_gap_min: String(Math.round((c.visit_gap_sec ?? 600) / 60)),
+            };
+          }
+
+          function autoPatchFromDraft(d) {
+            return {
+              auto: {
+                enabled: d.enabled,
+                default_ai_on: d.default_ai_on,
+                group_need_at: d.group_need_at,
+                emoji_reply: d.emoji_reply,
+                pat_reply: d.pat_reply,
+                instant_reply: d.instant_reply,
+                only_whitelist: d.only_whitelist,
+                whitelist: splitLines(d.whitelist),
+                blacklist: splitLines(d.blacklist),
+                min_interval_sec: parseInt(d.min_interval_sec, 10) || 0,
+                daily_limit: parseInt(d.daily_limit, 10) || 0,
+                takeover_pause_min: parseInt(d.takeover_pause_min, 10) || 0,
+                prefix: d.prefix,
+                reply_timeout_sec: parseFloat(d.reply_timeout_sec) || 0,
+                timeout_fallback: d.timeout_fallback.trim(),
+                split_reply: d.split_reply,
+              },
+              ai: {
+                emoji_with_reply: d.emoji_with_reply,
+                emoji_auto_collect: d.emoji_auto_collect,
+                wiki_emoji_only: d.wiki_emoji_only,
+                chuanzi_mode: d.chuanzi_mode,
+                chuanzi_site_emoji: d.chuanzi_site_emoji,
+              },
+              cross: {
+                enabled: d.cross_enabled,
+                relay: d.cross_relay,
+                visit: d.cross_visit,
+                daily_limit: parseInt(d.cross_daily_limit, 10) || 0,
+                visit_gap_sec: (parseInt(d.cross_visit_gap_min, 10) || 0) * 60,
+              },
+            };
+          }
+
+          async function saveAutoTab() {
+            if (!autoDraft || autoPending) return;
+            setAutoPending(true);
+            setSettingsError('');
+            try {
+              const value = await call('settings.put', { patch: autoPatchFromDraft(autoDraft) }, 15000);
+              if (!mounted.current) return;
+              const saved = value && typeof value === 'object' ? value.settings : null;
+              if (saved) {
+                setSettings(saved);
+                setAutoDraft(autoFromSettings(saved));
+              }
+              setSettingsFlash('已保存 ' + new Date().toLocaleTimeString());
+            } catch (error0) {
+              if (mounted.current) setSettingsError(errorMessage(error0));
+            } finally {
+              if (mounted.current) setAutoPending(false);
+            }
+          }
+
           async function installFeature(feature) {
             const id = feature && feature.id ? String(feature.id) : '';
             if (!id || installPending || (deps && deps.installing)) return;
@@ -1467,6 +1571,7 @@ window.__ModuleLoader__.load({
                 void loadSettingsTab();
                 void loadPresets();
               }
+              if (tab === 'auto') void loadSettingsTab();
             };
             tick();
             const timer = window.setInterval(tick, POLL_MS);
@@ -1741,6 +1846,78 @@ window.__ModuleLoader__.load({
             ? features.find((item) => item && String(item.id) === log.feature) || null
             : null;
 
+          function renderAutoTab() {
+            const panel = { role: 'tabpanel', id: 'dsh-tabpanel-auto', 'aria-labelledby': 'dsh-tab-auto', className: 'dsh-deepfeiyu-tabpanel' };
+            if (!autoDraft) {
+              return h('div', panel,
+                settingsError
+                  ? h('div', { className: 'dsh-deepfeiyu-errorbar', role: 'alert' },
+                    h('span', { className: 'dsh-deepfeiyu-errorbar-text' }, settingsError),
+                    settingsButton('重试', () => { void loadSettingsTab(); }, {}))
+                  : h('p', { className: 'dsh-deepfeiyu-hint' }, '正在读取设置…'));
+            }
+            const set = (key, value) => setAutoDraft((prev) => (prev ? { ...prev, [key]: value } : prev));
+            return h('div', panel,
+              settingsError
+                ? h('div', { className: 'dsh-deepfeiyu-errorbar', role: 'alert' },
+                  h('span', { className: 'dsh-deepfeiyu-errorbar-text' }, settingsError),
+                  settingsButton('关闭', () => setSettingsError(''), { title: '收起错误提示' }))
+                : null,
+              h('div', { className: 'dsh-deepfeiyu-dep-terminal-card' },
+                h('div', { className: 'dsh-deepfeiyu-dep-terminal-head' },
+                  h('span', { className: 'dsh-deepfeiyu-dep-terminal-title' }, '自动回复策略')),
+                h(ToggleRow, { label: '自动回复总开关', hint: '关着不调模型、不注入、不判断心情', checked: autoDraft.enabled, onChange: (v) => set('enabled', v) }),
+                h(ToggleRow, { label: '新会话默认开 AI', checked: autoDraft.default_ai_on, onChange: (v) => set('default_ai_on', v) }),
+                h(ToggleRow, { label: '群聊需 @ 才回', hint: '按账号配置的昵称检测', checked: autoDraft.group_need_at, onChange: (v) => set('group_need_at', v) }),
+                h(ToggleRow, { label: '表情回复', checked: autoDraft.emoji_reply, onChange: (v) => set('emoji_reply', v) }),
+                h(ToggleRow, { label: '拍一拍也回', checked: autoDraft.pat_reply, onChange: (v) => set('pat_reply', v) }),
+                h(ToggleRow, { label: '仅白名单回复', checked: autoDraft.only_whitelist, onChange: (v) => set('only_whitelist', v) }),
+                h(Field, { label: '白名单（每行一个）' },
+                  h(TextArea, { value: autoDraft.whitelist, onChange: (v) => set('whitelist', v), rows: 3, placeholder: '张三\n工作群' })),
+                h(Field, { label: '黑名单（每行一个）' },
+                  h(TextArea, { value: autoDraft.blacklist, onChange: (v) => set('blacklist', v), rows: 3, placeholder: '永远不回的会话' })),
+                h('div', { className: 'dsh-deepfeiyu-grid' },
+                  h(Field, { label: '最短回复间隔（秒）' },
+                    h(TextInput, { type: 'number', value: autoDraft.min_interval_sec, onChange: (v) => set('min_interval_sec', v), min: 0 })),
+                  h(Field, { label: '每日回复上限' },
+                    h(TextInput, { type: 'number', value: autoDraft.daily_limit, onChange: (v) => set('daily_limit', v), min: 0 })),
+                  h(Field, { label: '人工接管暂停（分钟）', hint: '你亲自回一句后 AI 退让的时长' },
+                    h(TextInput, { type: 'number', value: autoDraft.takeover_pause_min, onChange: (v) => set('takeover_pause_min', v), min: 0 })),
+                  h(Field, { label: '回复前缀（可空）' },
+                    h(TextInput, { value: autoDraft.prefix, onChange: (v) => set('prefix', v), placeholder: '例如：[AI]' })),
+                  h(Field, { label: '回复超时（秒，0 = 不限制）' },
+                    h(TextInput, { type: 'number', value: autoDraft.reply_timeout_sec, onChange: (v) => set('reply_timeout_sec', v), min: 0 })),
+                  h(Field, { label: '超时兜底话（可空）' },
+                    h(TextInput, { value: autoDraft.timeout_fallback, onChange: (v) => set('timeout_fallback', v), placeholder: '稍等，我想想怎么回你' }))),
+                h(ToggleRow, { label: '一条回复拆成多条发送', hint: 'AI 可用 --- 分隔拆成最多 3 条短消息', checked: autoDraft.split_reply, onChange: (v) => set('split_reply', v) })),
+              h('div', { className: 'dsh-deepfeiyu-dep-terminal-card' },
+                h('div', { className: 'dsh-deepfeiyu-dep-terminal-head' },
+                  h('span', { className: 'dsh-deepfeiyu-dep-terminal-title' }, '表情包与串子')),
+                h(ToggleRow, { label: '回复必带表情包', hint: '按场景从表情库自选', checked: autoDraft.emoji_with_reply, onChange: (v) => set('emoji_with_reply', v) }),
+                h(ToggleRow, { label: '自动收集聊天表情', checked: autoDraft.emoji_auto_collect, onChange: (v) => set('emoji_auto_collect', v) }),
+                h(ToggleRow, { label: '仅 AI 娘表情', hint: '只允许 tags 带图鉴角色名的表情', checked: autoDraft.wiki_emoji_only, onChange: (v) => set('wiki_emoji_only', v) }),
+                h(ToggleRow, { label: '串子模式', hint: '回复像串子；只对准观点与梗', checked: autoDraft.chuanzi_mode, onChange: (v) => set('chuanzi_mode', v) }),
+                h(ToggleRow, { label: '串子站表情', hint: '联网查台词库并入库截图，默认关', checked: autoDraft.chuanzi_site_emoji, onChange: (v) => set('chuanzi_site_emoji', v) })),
+              h('div', { className: 'dsh-deepfeiyu-dep-terminal-card' },
+                h('div', { className: 'dsh-deepfeiyu-dep-terminal-head' },
+                  h('span', { className: 'dsh-deepfeiyu-dep-terminal-title' }, '跨对话沟通')),
+                h(ToggleRow, { label: '跨对话总开关', hint: '转告/代发与主动串门', checked: autoDraft.cross_enabled, onChange: (v) => set('cross_enabled', v) }),
+                h(ToggleRow, { label: '允许转告 / 代发', checked: autoDraft.cross_relay, onChange: (v) => set('cross_relay', v) }),
+                h(ToggleRow, { label: '允许主动串门', checked: autoDraft.cross_visit, onChange: (v) => set('cross_visit', v) }),
+                h('div', { className: 'dsh-deepfeiyu-grid' },
+                  h(Field, { label: '每日跨对话上限（0 = 不限）' },
+                    h(TextInput, { type: 'number', value: autoDraft.cross_daily_limit, onChange: (v) => set('cross_daily_limit', v), min: 0 })),
+                  h(Field, { label: '串门冷却（分钟）' },
+                    h(TextInput, { type: 'number', value: autoDraft.cross_visit_gap_min, onChange: (v) => set('cross_visit_gap_min', v), min: 0 })))),
+              h('div', { className: 'dsh-deepfeiyu-form-actions' },
+                h('span', { className: 'dsh-deepfeiyu-hint' }, settingsFlash),
+                settingsButton(autoPending ? '保存中…' : '保存设置', () => { void saveAutoTab(); }, {
+                  primary: true,
+                  disabled: autoPending || !autoDraft,
+                  title: '只提交本页字段的窄补丁，模型与账号设置不受影响',
+                })));
+          }
+
           function renderModelTab() {
             const panel = { role: 'tabpanel', id: 'dsh-tabpanel-model', 'aria-labelledby': 'dsh-tab-model', className: 'dsh-deepfeiyu-tabpanel' };
             const ai = settings ? settings.ai || {} : null;
@@ -1898,6 +2075,7 @@ window.__ModuleLoader__.load({
               h('p', { className: 'dsh-deepfeiyu-meta' }, '控制台的设置、依赖与融合；状态以控制台为准，保存后就地刷新。')),
             h(TabBar),
             tab === 'model' ? renderModelTab() : null,
+            tab === 'auto' ? renderAutoTab() : null,
             tab === 'deps' ? renderDepsTab() : null);
         }
 

@@ -286,6 +286,18 @@ def test_model_tab_present():
     assert "api_key: ''," in source
 
 
+def test_auto_tab_present():
+    source = (PKG / "client.js").read_text(encoding="utf-8")
+    for token in ("'自动回复'", "renderAutoTab", "autoFromSettings", "autoPatchFromDraft",
+                  "saveAutoTab", "splitLines", "visit_gap_sec", "split_reply",
+                  "chuanzi_site_emoji", "only_whitelist", "cross_daily_limit"):
+        assert token in source, f"client.js 缺少 {token}"
+    # 自动回复保存也必须是窄补丁，且与模型草稿分开
+    assert "call('settings.put', { patch: autoPatchFromDraft(autoDraft)" in source
+    # 加载时同时播种两个草稿，互不覆盖
+    assert "prev || autoFromSettings" in source
+
+
 def test_js_syntax():
     node = shutil.which("node")
     if not node:
