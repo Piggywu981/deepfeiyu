@@ -388,7 +388,7 @@ Python 插件与应用同权限运行，只装你信任的代码。
 
 ## 7.5 DSH 插件（DeepSeek Harness）
 
-`dsh-plugin/` 是一个**无构建**的 Cordis bundle，把 Deep肥鱼接进 DeepSeek Harness（下称 DSH）：DSH 侧栏出现「Deep肥鱼」原生面板，`设置 → Deep肥鱼` 里还有一页依赖环境（六个功能的依赖状态与一键安装）和「关联 DSH 插件」（一键安装上游的桌宠 `dsh-dafeiyu` / 心情 `dsh-feiyu-mood`，npm 最新版、白名单 + 二次确认；它们由 Harness 会话驱动，与控制台里的同名功能是两套），Harness 里的智能体拿到 8 个 `deepfeiyu_*` 工具，插件还能按需拉起/停止本仓库的控制台进程。它不重写本项目，也不新增运行时——Host 半（`index.js` + `lib/`）只通过 HTTP 调用既有的 `http://127.0.0.1:8765` API，Client 半（`client.js`）是注册在 DSH slot 里的原生 React 面板（不是 iframe）；面板数据走同源、复用 DSH 连接鉴权的插件路由，不新开对外端口，也不新增无鉴权数据通道。
+`dsh-plugin/` 是一个**无构建**的 Cordis bundle，把 Deep肥鱼接进 DeepSeek Harness（下称 DSH）：DSH 侧栏出现「Deep肥鱼」原生面板，`设置 → Deep肥鱼` 里还有一页依赖环境（六个功能的依赖状态与一键安装）、「关联 DSH 插件」与「心情与桌宠（融合）」（与微信共享同一份心情/一只桌宠；DSH 回合结束用默认模型判断并写回控制台，右下角挂饰与 Harness 提示词都读这份共享状态），Harness 里的智能体拿到 8 个 `deepfeiyu_*` 工具，插件还能按需拉起/停止本仓库的控制台进程。它不重写本项目，也不新增运行时——Host 半（`index.js` + `lib/`）只通过 HTTP 调用既有的 `http://127.0.0.1:8765` API，Client 半（`client.js`）是注册在 DSH slot 里的原生 React 面板（不是 iframe）；面板数据走同源、复用 DSH 连接鉴权的插件路由，不新开对外端口，也不新增无鉴权数据通道。
 
 **安装**
 
@@ -397,7 +397,7 @@ Python 插件与应用同权限运行，只装你信任的代码。
 3. 安装后刷新 DSH 页面（首次安装要加载新的 Client 模块）；替换已装包后需要一次插件重载（在插件页把「Deep肥鱼」关一次再打开，或重启 Harness）才会加载新的 Host 代码。
 4. 默认 `mode=auto`、`autostart=true`：插件激活时先探测控制台，没运行就用本仓库 `.venv` 的 Python 拉起 `-m app.main`；已经在运行则直接附着。只想附着、不许插件拉起进程，把 `mode` 改成 `attach`。
 
-> 验证状态（2026-11-01）：bundle 已实机安装（`application: applied`），8 个 `deepfeiyu_*` 工具实机调用通过（并确认发送被服务端身份闸门拦截），面板数据与交互经用户验收；真实微信发送因本机无可用通道未验证，`ask` 模式的审批弹窗未实测（本次会话为完全批准）。自动化测试覆盖 Python 侧 `send` 的 `source` 语义与 bundle 静态一致性（manifest / patch / locale / icon / files / 8 个工具名 / `node --check`）。设置页「依赖环境」的 Client 半已在浏览器注册（`settings.section` 出现 occupant `deepfeiyu`，页面可见）；Host 半的 `deps.*` / `dshPlugins.*` 路由需要一次插件重载（插件页关/开一次，或重启 Harness）才会加载，重载后设置页按轮询自行恢复。设置页按钮（控制台依赖安装、关联 DSH 插件安装）的浏览器内点击验收仍待确认；「关联 DSH 插件」验证时未实际下载第三方 bundle。
+> 验证状态（2026-11-01）：bundle 已实机安装（`application: applied`），8 个 `deepfeiyu_*` 工具实机调用通过（并确认发送被服务端身份闸门拦截），面板数据与交互经用户验收；真实微信发送因本机无可用通道未验证，`ask` 模式的审批弹窗未实测（本次会话为完全批准）。自动化测试覆盖 Python 侧 `send` 的 `source` 语义与 bundle 静态一致性（manifest / patch / locale / icon / files / 8 个工具名 / `node --check`）。设置页「依赖环境」的 Client 半已在浏览器注册（`settings.section` 出现 occupant `deepfeiyu`，页面可见）；Host 半的 `deps.*` / `dshPlugins.*` / `fusion.*` 路由需要一次插件重载（插件页关/开一次，或重启 Harness）才会加载，重载后设置页按轮询自行恢复。设置页按钮（控制台依赖安装、关联 DSH 插件安装）的浏览器内点击验收仍待确认；「关联 DSH 插件」验证时未实际下载第三方 bundle。桌宠/心情融合的 `/api/dsh/*` 已在控制台实机返回数据（未绑定→回落当前账号、心情未启用、宠物未运行），插件关/开后 `settings.section` 与 `shell.overlay`（`deepfeiyu-mood`）注册可见；真实 Harness 回合判断、挂饰点击与微信注入文案未实测。
 
 **配置**（写在 Harness 的插件配置里；不是 `data/config.json`）
 
@@ -423,6 +423,7 @@ Python 插件与应用同权限运行，只装你信任的代码。
 - **面板数据路由有鉴权**：面板读数据走插件注册的同源路由，先复用 DSH 的浏览器 Cookie 与 Host/Origin 校验，未通过返回 401/403；不存在绕过 DSH 身份的无鉴权数据通道。
 - **依赖安装不新增执行能力**：设置页的「一键安装」只是经同源路由调用控制台的 `/api/deps/*`，pip 命令与 requirements 路径由 Python 侧写死白名单；插件本身不执行 shell/pip，也不接受前端传入的包名。
 - **第三方 DSH 插件安装有白名单**：设置页「关联 DSH 插件」只允许 `dsh-dafeiyu` / `dsh-feiyu-mood` 两个固定包（npm 最新版），前端只能传白名单 id，点击前二次确认；它经 Host 的 `pluginManager.installBundle` 安装，等价于用户在 DSH 插件页手动安装，不绕过 DSH 自身的版本兼容与构建脚本审批；Agent 工具仍只能走需要 danger-full-access 或审批的 `plugin_manager`。
+- **心情/桌宠融合不搬运原文**：DSH 侧只把已判断好的心情结果与 ≤60 字理由写回控制台（`/api/dsh/*`），Harness 对话原文只留在 Host 内存、判断后即丢弃；控制台注入 Harness 的只有共享心情数值与来源为 DSH 的短理由，微信来历永不进 Harness。
 - 插件管理的控制台子进程由插件自己拉起，卸载时只终止**自己拉起**的进程；`attach` 到的已有实例不动。
 
 **卸载**

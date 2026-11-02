@@ -82,6 +82,21 @@ Host 侧仅新增三个同源代理端点：`POST /deepfeiyu/deps.state`、`deps
 - 安装是 Host 进程里的后台任务，设置页轮询进度并显示 `application` 结论（`applied` 刷新页面生效，`restart-required` 需重启 Harness）；
 - 只依赖 Host 的 `pluginManager` 服务：服务缺失时该区块显示"没有插件管理服务"，面板其余功能不受影响。
 
+## 融合：共享心情与桌宠
+
+融合让 Harness 与微信共享**同一份心情、同一只桌宠**（状态源在控制台），而不是再开第二个独立插件：
+
+- 设置页新增「心情与桌宠（融合）」：绑定一个微信账号、三个开关、当前心情与双源时间线；
+- 右下角心情挂饰（`shell.overlay`）只读共享状态，20s 轮询，点开看最近 5 条双源事件；
+- Host 监听 `session/event`（`user/message`、`assistant/message`、`tool/call`、`tool/result`、`turn/end`）：
+  - 回合结束后用 DSH 默认模型判断心情，结果写回控制台 `POST /api/dsh/mood-event`；限流：同账号 ≥90s、每日最多 40 次；
+  - 工具/回合事件经 3s 防抖后写 `POST /api/dsh/pet-event`，驱动控制台那只桌宠；
+  - 通过 `systemPrompt.context`（`deepfeiyu.mood`，60s 刷新）把共享心情注入 Harness 提示词。
+- 三个开关：DSH 判断心情 / 宠物反映 Harness / 允许 Harness 来历进微信（默认开）。
+- 隐私：Harness 原文**不出 Host**，只传判断结果与 ≤60 字理由；微信来源的理由不进 Harness；群聊里的 Harness 来历也降级为"只说心情"。
+- 控制台停机时判断与宠物事件直接丢弃、记日志，不阻塞 Harness 对话；插件卸载会清理监听、定时器与提示词上下文。
+- 注意：「设置页 → 关联 DSH 插件」里的 `dsh-dafeiyu` / `dsh-feiyu-mood` 是**独立版**，不与控制台共享状态；融合模式下不建议同时开启，否则会出现两套心情/两只宠物。
+
 ## 安全
 
 - **不削弱任何服务端闸门**：所有发送仍走 Python 控制台的既有 `send_text`（含驱动在线、绑定身份确认、`send.forbidden_wxids` 禁发名单、写操作本机限制、访问令牌校验）。
@@ -90,6 +105,7 @@ Host 侧仅新增三个同源代理端点：`POST /deepfeiyu/deps.state`、`deps
 - **令牌不外泄**：令牌只在 Host 进程内用于调用 `127.0.0.1`，不写日志、不返回给 Client、不进入工具结果。
 - **面板数据路由有鉴权**：`/deepfeiyu/*` 先调用 `ctx.connection.requestRejection` 复用 DSH 的浏览器 Cookie 与 Host/Origin 校验，未通过直接 401/403。
 - **第三方插件安装是显式用户动作**：`dshPlugins.*` 只操作本机 Harness profile，白名单固定为 `dsh-dafeiyu` / `dsh-feiyu-mood`，不接受任意 spec；Client 点击前二次确认。它等价于用户在 DSH 插件页手动安装，不改变 DSH 自身的版本兼容与构建脚本审批逻辑；Agent 工具仍只能走 `plugin_manager`（需要 danger-full-access 或审批）。
+- **融合不搬运原文**：`fusion.*` 只把已判断好的心情结果与 ≤60 字理由写回控制台；Harness 对话原文只留在 Host 内存，用于一次判断后即丢弃；控制台注入 Harness 的只有共享心情数值与来源为 DSH 的短理由。
 - 聊天内容会作为工具结果进入模型上下文（这是本插件被要求的用途）；插件自身不把聊天内容写入日志或文件。
 
 ## 工具清单

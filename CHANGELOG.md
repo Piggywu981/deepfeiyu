@@ -32,6 +32,16 @@
 - `tests/test_dsh_plugin.py` 补充白名单、路由只转发 id、Client 二次确认与 README 说明的静态断言。
 - 验证状态：`tests/test_dsh_plugin.py` 16 passed；`node --check` 覆盖 `client.js` / `lib/route.js` / `lib/dsh-plugins.js`；另用临时假 ctx 脚本（未入库）验证了白名单安装、未知 id 拒绝、已安装拒绝、缺 `pluginManager` 时的降级等 17 项断言。插件已通过「关/开一次」重载，控制台随之重启并恢复 running；`settings.section` occupant `deepfeiyu` 仍在。**验证期间没有实际下载/安装任何第三方 bundle**；设置页的真实点击与装后效果待用户确认。
 
+### 2026-11-02 · 桌宠与心情双端融合
+
+- 控制台新增 `app/dsh_bridge/` 与 `/api/dsh/*` 六个端点（state / config / mood-event / pet-event / timeline / judge-prompt）：DSH 绑定一个微信账号后，Harness 与微信共享同一份心情；判断结果由 DSH 产出、控制台统一校验落库（`source=dsh`），不新增数据库表/列。
+- `app/mood/service.py` 抽出 `apply_judged_delta()`，微信判断与 DSH 回写共用显著阈值、额度与衰减规则；`inject_block` 增加跨端来历开关（默认开、群聊永远只说心情、微信来历永不进 Harness）；`state_payload` 暴露 `lastSource`。
+- 桌宠：`/api/dsh/pet-event` 把 Harness 工具/回合事件转成既有 bus 事件；`PetReducer` 接受 `origin/title`，气泡标注「Harness · 会话标题」；一只桌宠同时反映两端活动。
+- DSH 插件：Host 监听 `session/event`、`agent/error`，回合结束时用默认模型判断并写回（同账号 ≥90s、每日 40 次限流），`systemPrompt.context` 注入共享心情；Client 设置页新增「心情与桌宠（融合）」区块与右下角 `shell.overlay` 挂饰（20s 轮询）。控制台停机时静默丢弃，不阻塞 Harness；卸载时清理监听、定时器与提示词上下文。
+- 新增 `tests/test_dsh_bridge.py`（15 个用例）；`tests/test_pet_bubble.py` 补来源标签；`tests/test_dsh_plugin.py` 补融合静态断言（22 个）。
+- 规格与计划：`docs/superpowers/specs/2026-11-02-pet-mood-fusion-design.md`、`docs/superpowers/plans/2026-11-02-pet-mood-fusion.md`。
+- 验证状态：`tests/test_dsh_bridge.py`、`tests/test_dsh_plugin.py`、`tests/test_pet_bubble.py` 合计 50 passed；`node --check` 覆盖 `client.js` / `lib/fusion.js` / `lib/route.js` / `lib/ops.js` / `index.js`；全量 `pytest` 为 1487 passed / 6 failed / 0 skipped，6 个失败均为本机环境（5 个 `test_pet_supervisor` 缺 PySide6、1 个 `test_whale_widget` 缺 `vendor/dsh-whale-widget` 子模块）；此前 `test_weixin4_send` / `test_wxgf_frames` 的失败因本机已装 `wechatauto` 而消失。实机：控制台重启后 `/api/dsh/state` 与 `/api/dsh/judge-prompt` 返回真实数据（未绑定→回落当前账号、心情未启用、宠物未运行）；插件关/开后控制台恢复 running，`settings.section` 与 `shell.overlay`（`deepfeiyu-mood`）注册可见。真实 Harness 回合触发判断、挂饰点击与微信注入文案未实测（需要真实会话/浏览器/微信通道）。
+
 ## [1.0.1] - 2026-11-01
 
 > 本版为 **v1.0.1**：内容等同原计划的 v1.0.0 重新发行，包含法律合规、安全修复、非商业许可、协作规则与发行免责声明。GitHub 的 `v1.0.0` 是 immutable release，tag 无法移动且不可复用，因此当前快照以 `v1.0.1` 发布；两个镜像的 `v1.0.0` 均保留为原始提交。
