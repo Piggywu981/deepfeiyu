@@ -178,7 +178,7 @@ window.__ModuleLoader__.load({
 .dsh-deepfeiyu-dep-log-status.dsh-deepfeiyu-is-ok { color: var(--dsw-alias-state-success-primary, #22c55e); }
 .dsh-deepfeiyu-dep-log-status.dsh-deepfeiyu-is-error { color: var(--dsw-alias-state-error-primary, #ec1313); }
 .dsh-deepfeiyu-dep-log-status.dsh-deepfeiyu-is-busy { color: var(--dsw-alias-label-secondary, #61666b); }
-.dsh-deepfeiyu-mood { position: fixed; right: 20px; bottom: 72px; z-index: 40; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.dsh-deepfeiyu-mood { position: fixed; right: 20px; bottom: 72px; z-index: 40; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; pointer-events: auto; }
 .dsh-deepfeiyu-mood-button { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid var(--dsw-alias-border-l2, #0000001a); border-radius: 999px; background: var(--dsw-alias-bg-layer-1, #fff); color: var(--dsw-alias-label-primary, #0f1115); font: inherit; cursor: pointer; }
 .dsh-deepfeiyu-mood-button:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary, #4176e6); outline-offset: 1px; }
 .dsh-deepfeiyu-mood-face { font-size: 16px; }
