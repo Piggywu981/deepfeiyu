@@ -233,6 +233,12 @@ def list_events(account_id: str, slot_id: str, limit: int = 50, before: float = 
     return [_event_row(r) for r in rows]
 
 
+def last_event(account_id: str, slot_id: str) -> dict[str, Any] | None:
+    """最近一条心情事件：跨端注入判断需要它的 source，但不新增数据库列。"""
+    rows = list_events(account_id, slot_id, limit=1)
+    return rows[0] if rows else None
+
+
 def mark_injected(account_id: str, slot_id: str, at: float) -> None:
     with db._write_lock:
         conn = db._conn()

@@ -85,6 +85,64 @@ def observe(account_id: str, chat_uid: str, user_text: str, reply: str,
         return "skipped"
 
 
+def apply_judged_delta(
+    account_id: str,
+    slot_id: str,
+    delta: dict[str, Any],
+    *,
+    source: str = "dsh",
+    reason_limit: int = 60,
+    chat_uid: str = "",
+    st: dict[str, Any] | None = None,
+    now: float | None = None,
+) -> dict[str, Any]:
+    """把已经判断好的 delta 应用到槽位并落事件。
+
+    微信判断与 DSH 回写共用这一套：显著阈值、minor、注入额度状态、衰减、事件格式都相同；
+    唯一区别是 source 与 reason 截断（跨端理由只保留短句）。
+    """
+    st = st or settings.settings(account_id)
+    reason = str(delta.get("reason") or "")[: max(1, int(reason_limit))]
+    delta = {**delta, "reason": reason}
+    step = model.mood_step(delta["moodDelta"])
+    any_dim = any(delta["dims"][key] != 0 for key in DIM_KEYS)
+    if step == 0 and not any_dim:
+        return {"applied": False, "skipped": "no-change"}
+    with state_lock(account_id, slot_id):
+        state = store.load_state(account_id, slot_id, base=st["base"])
+        _decay_note(account_id, slot_id, state, st, time.time())
+        sig = model.significant(delta, st["sig_mood"], st["sig_dim"])
+        at = time.time() if now is None else float(now)
+        model.apply_delta(state, delta, st["floor"], at)
+        state["minor"] = 0 if sig else 1
+        state["last_chat_uid"] = chat_uid
+        store.save_state_with_event(
+            account_id, slot_id, state,
+            event={
+                "at": at,
+                "mood": state["mood"],
+                "delta": model.mood_step(delta["moodDelta"]),
+                "dims": state["dims"],
+                "dims_delta": delta["dims"],
+                "reason": reason,
+                "confidence": delta["confidence"],
+                "kind": "judge",
+                "source": source,
+                "minor": state["minor"],
+            },
+        )
+    return {
+        "applied": True,
+        "skipped": "",
+        "mood": state["mood"],
+        "dims": state["dims"],
+        "confidence": state["last_confidence"],
+        "minor": state["minor"],
+        "significant": sig,
+        "event": {"at": at, "source": source, "reason": reason},
+    }
+
+
 async def _run(account_id: str, chat_uid: str, slot_id: str, user_text: str,
                reply: str, source: str, llm: Any, st: dict[str, Any]) -> None:
     key = (account_id, slot_id)
@@ -103,37 +161,15 @@ async def _run(account_id: str, chat_uid: str, slot_id: str, user_text: str,
             )
             if not delta:
                 return
-            step = model.mood_step(delta["moodDelta"])
-            any_dim = any(delta["dims"][k] != 0 for k in DIM_KEYS)
-            if step == 0 and not any_dim:
+            result = apply_judged_delta(
+                account_id, slot_id, delta, source=source, chat_uid=chat_uid, st=st,
+            )
+            if not result["applied"]:
                 log.info("这一轮判定无变化，不记入时间线（%s）", source)
                 return
-            # 读改写整段同步执行，不能跨 await 持锁；判断调用已在锁外完成。
-            with state_lock(account_id, slot_id):
-                state = store.load_state(account_id, slot_id, base=st["base"])
-                _decay_note(account_id, slot_id, state, st, time.time())
-                sig = model.significant(delta, st["sig_mood"], st["sig_dim"])
-                now = time.time()
-                model.apply_delta(state, delta, st["floor"], now)
-                state["minor"] = 0 if sig else 1
-                state["last_chat_uid"] = chat_uid
-                store.save_state_with_event(
-                    account_id, slot_id, state,
-                    event={
-                        "at": now,
-                        "mood": state["mood"],
-                        "delta": model.mood_step(delta["moodDelta"]),
-                        "dims": state["dims"],
-                        "dims_delta": delta["dims"],
-                        "reason": delta["reason"],
-                        "confidence": delta["confidence"],
-                        "kind": "judge",
-                        "source": source,
-                        "minor": state["minor"],
-                    },
-                )
-                log.info("心情更新（%s）：mood=%.1f minor=%s reason=%s",
-                         source, state["mood"], state["minor"], delta["reason"][:80])
+            log.info("心情更新（%s）：mood=%.1f minor=%s reason=%s",
+                     source, result["mood"], result["minor"],
+                     result["event"]["reason"][:80])
     except Exception:  # noqa: BLE001
         log.exception("心情判断失败（%s/%s）", account_id, slot_id)
     finally:

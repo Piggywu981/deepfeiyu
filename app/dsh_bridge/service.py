@@ -5,12 +5,15 @@
 """
 from __future__ import annotations
 
+import hashlib
 from typing import Any
 
 from .. import config
+from ..mood import prompt as mood_prompt
 from ..mood import service as mood_service
 from ..mood import settings as mood_settings
 from ..mood import store as mood_store
+from ..mood.constants import DIM_KEYS
 from ..pet.supervisor import supervisor as pet_supervisor
 
 DEFAULTS: dict[str, Any] = {
@@ -86,3 +89,66 @@ def save_config(patch: dict[str, Any]) -> dict[str, Any]:
     if allowed:
         config.save({"dsh": allowed})
     return state_payload()
+
+
+def _normalize_delta(body: dict[str, Any]) -> dict[str, Any]:
+    try:
+        mood_delta = float(body.get("moodDelta"))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("moodDelta 必须是数字") from exc
+    if not -10.0 <= mood_delta <= 10.0:
+        raise ValueError("moodDelta 超出 [-10, 10]")
+    raw_dims = body.get("dims") if isinstance(body.get("dims"), dict) else {}
+    dims: dict[str, float] = {}
+    for key in DIM_KEYS:
+        try:
+            value = float(raw_dims.get(key) or 0)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"dims.{key} 必须是数字") from exc
+        if not -10.0 <= value <= 10.0:
+            raise ValueError(f"dims.{key} 超出 [-10, 10]")
+        dims[key] = value
+    try:
+        confidence = int(body.get("confidence"))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("confidence 必须是整数") from exc
+    if not 0 <= confidence <= 100:
+        raise ValueError("confidence 超出 [0, 100]")
+    reason = "".join(
+        ch for ch in str(body.get("reason") or "") if ch.isprintable()
+    ).strip()[:60]
+    return {"moodDelta": mood_delta, "dims": dims,
+            "confidence": confidence, "reason": reason}
+
+
+def judge_prompt_payload() -> dict[str, Any]:
+    """按绑定账号的人设渲染判断系统提示；DSH 只负责拼本轮对话并解析 JSON。"""
+    account_id, _ = bound_account()
+    slot_id = mood_settings.resolve_slot(account_id, "")
+    self_name, owner, aliases = mood_settings.names(account_id, slot_id, chat_name="")
+    system = mood_prompt.system(self_name, owner, aliases)
+    schema = (
+        '{"moodDelta":0,"dims":{"happy":0,"calm":0,"sweet":0,"heartache":0,'
+        '"worry":0,"sad":0,"jealous":0},"reason":"","confidence":80}'
+    )
+    return {
+        "version": hashlib.sha256(system.encode("utf-8")).hexdigest()[:12],
+        "system": system,
+        "schema": schema,
+    }
+
+
+def apply_mood_event(body: dict[str, Any]) -> dict[str, Any]:
+    sec = section()
+    if not sec["judge_enabled"]:
+        return {"applied": False, "skipped": "judge-disabled"}
+    account_id, _ = bound_account()
+    if not mood_settings.enabled(account_id):
+        return {"applied": False, "skipped": "mood-disabled"}
+    slot_id = mood_settings.resolve_slot(account_id, "")
+    delta = _normalize_delta(body)
+    result = mood_service.apply_judged_delta(
+        account_id, slot_id, delta, source="dsh", chat_uid="", reason_limit=60,
+    )
+    return {**result, "accountId": account_id,
+            "mood": mood_service.state_payload(account_id)}

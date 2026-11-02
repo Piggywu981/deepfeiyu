@@ -101,3 +101,67 @@ def test_remote_host_rejected():
     with pytest.raises(HTTPException) as caught:
         bridge_api._require_local(_Remote())
     assert caught.value.status_code == 403
+
+
+def _seed_mood(account_id="acc_a", slot_id="default"):
+    from app.mood import store
+    state = store.load_state(account_id, slot_id)
+    state.update({"mood": 70.0, "last_confidence": 80, "updated_at": 1000.0})
+    store.save_state(account_id, slot_id, state)
+
+
+def test_judge_prompt_is_rendered_for_bound_account(cfg):
+    body = _client().get("/api/dsh/judge-prompt").json()
+    assert body["version"] and len(body["version"]) == 12
+    assert "只输出一个 JSON 对象" in body["system"]
+    assert "moodDelta" in body["schema"]
+
+
+def test_mood_event_applies_and_records_dsh_source(temp_db, cfg):
+    _seed_mood()
+    res = _client().post("/api/dsh/mood-event", json={
+        "moodDelta": 6,
+        "dims": {"happy": 8, "calm": 0, "sweet": 2,
+                 "heartache": 0, "worry": 0, "sad": 0, "jealous": 0},
+        "confidence": 85,
+        "reason": "用户在 Harness 里把一个麻烦的 bug 交给我，我认真查完了",
+    })
+    assert res.status_code == 200
+    body = res.json()
+    assert body["applied"] is True and body["accountId"] == "acc_a"
+    from app.mood import store
+    events = store.list_events("acc_a", "default", limit=5)
+    assert events and events[0]["source"] == "dsh"
+    assert len(events[0]["reason"]) <= 60
+
+
+def test_mood_event_rejects_out_of_range(cfg):
+    res = _client().post("/api/dsh/mood-event", json={
+        "moodDelta": 99, "dims": {}, "confidence": 80, "reason": "x"})
+    assert res.status_code == 400
+
+
+def test_mood_event_skipped_when_judge_disabled(cfg):
+    cfg["dsh"]["judge_enabled"] = False
+    body = _client().post("/api/dsh/mood-event", json={
+        "moodDelta": 3, "dims": {}, "confidence": 80, "reason": "x"}).json()
+    assert body["applied"] is False and body["skipped"] == "judge-disabled"
+
+
+def test_apply_judged_delta_shared_by_wechat_and_dsh(temp_db, cfg):
+    from app.mood import service as mood_service
+    from app.mood import store
+    _seed_mood()
+    result = mood_service.apply_judged_delta(
+        "acc_a", "default",
+        {"moodDelta": 6,
+         "dims": {"happy": 6, "calm": 0, "sweet": 0,
+                  "heartache": 0, "worry": 0, "sad": 0, "jealous": 0},
+         "confidence": 90, "reason": "r" * 80},
+        source="dsh",
+    )
+    assert result["applied"] is True and result["significant"] is True
+    events = store.list_events("acc_a", "default", limit=1)
+    assert events[0]["source"] == "dsh"
+    assert events[0]["reason"] == "r" * 60
+    assert events[0]["kind"] == "judge" and events[0]["minor"] == 0

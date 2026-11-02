@@ -38,3 +38,24 @@ def post_config(request: Request, body: ConfigBody) -> dict[str, Any]:
         return service.save_config(body.model_dump(exclude_none=True))
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
+
+
+@router.get("/judge-prompt")
+def get_judge_prompt(request: Request) -> dict[str, Any]:
+    _require_local(request)
+    return service.judge_prompt_payload()
+
+
+@router.post("/mood-event")
+def post_mood_event(request: Request, body: dict[str, Any]) -> dict[str, Any]:
+    _require_local(request)
+    try:
+        return service.apply_mood_event(body)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@router.get("/timeline")
+def get_timeline(request: Request, limit: int = 20) -> dict[str, Any]:
+    _require_local(request)
+    return {"ok": True, "events": service.timeline_payload(limit)}
