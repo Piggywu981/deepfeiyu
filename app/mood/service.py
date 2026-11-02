@@ -9,6 +9,7 @@ import time
 from datetime import datetime
 from typing import Any
 
+from .. import config
 from . import judge as judge_mod, model, settings, store
 from .constants import DIM_KEYS, DIM_LABELS
 
@@ -248,12 +249,21 @@ def inject_block(account_id: str, chat_uid: str = "", chat_name: str = "",
             _, owner, _ = settings.names(account_id, slot_id, chat_name=chat_name)
             mode = st["inject_mode"]
             if mode == "event" and state.get("kind") != "decay":
+                last = store.last_event(account_id, slot_id) or {}
+                is_dsh = last.get("source") == "dsh"
+                cross_dsh = is_dsh and bool(
+                    (config.load().get("dsh") or {}).get("cross_reason_enabled", True)
+                )
                 other_chat = bool(
                     chat_uid
                     and state.get("last_chat_uid")
                     and chat_uid != state.get("last_chat_uid")
                 )
-                if is_group or other_chat:
+                if is_group:
+                    mode = "label"          # 群聊永不带来历，跨端也一样
+                elif is_dsh:
+                    mode = "event" if cross_dsh else "label"
+                elif other_chat:
                     mode = "label"
             line = model.mood_line(state, mode, owner)
             if not line:
@@ -311,6 +321,7 @@ def state_payload(account_id: str, chat_uid: str = "") -> dict[str, Any]:
         "lastConfidence": state["last_confidence"],
         "kind": state["kind"],
         "minor": bool(state["minor"]),
+        "lastSource": (store.last_event(account_id, slot_id) or {}).get("source", ""),
         "updatedAt": state["updated_at"] * 1000,
         "injectedAt": state["last_injected_at"] * 1000,
         "injectedText": state["last_injected_text"],

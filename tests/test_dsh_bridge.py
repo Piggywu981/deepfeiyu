@@ -165,3 +165,37 @@ def test_apply_judged_delta_shared_by_wechat_and_dsh(temp_db, cfg):
     assert events[0]["source"] == "dsh"
     assert events[0]["reason"] == "r" * 60
     assert events[0]["kind"] == "judge" and events[0]["minor"] == 0
+
+
+def _apply_dsh(mood_delta=6, reason="用户在 Harness 里把 bug 交给我，我查完了"):
+    from app.dsh_bridge import service as svc
+    return svc.apply_mood_event({
+        "moodDelta": mood_delta,
+        "dims": {"happy": 5, "calm": 0, "sweet": 0,
+                 "heartache": 0, "worry": 0, "sad": 0, "jealous": 0},
+        "confidence": 90, "reason": reason,
+    })
+
+
+def test_dsh_reason_enters_private_wechat_when_enabled(temp_db, cfg):
+    from app.mood import service as mood_service
+    _seed_mood()
+    _apply_dsh(reason="用户在 Harness 里把 bug 交给我，我查完了")
+    line = mood_service.inject_block("acc_a", chat_uid="acc_a:wxid_1")
+    assert "bug" in line
+
+
+def test_dsh_reason_downgrades_when_switch_off(temp_db, cfg):
+    cfg["dsh"]["cross_reason_enabled"] = False
+    from app.mood import service as mood_service
+    _seed_mood()
+    _apply_dsh()
+    assert "bug" not in mood_service.inject_block("acc_a", chat_uid="acc_a:wxid_1")
+
+
+def test_dsh_reason_downgrades_in_group(temp_db, cfg):
+    from app.mood import service as mood_service
+    _seed_mood()
+    _apply_dsh()
+    assert "bug" not in mood_service.inject_block(
+        "acc_a", chat_uid="acc_a:group_1", is_group=True)
