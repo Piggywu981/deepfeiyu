@@ -184,6 +184,30 @@ window.__ModuleLoader__.load({
 .dsh-deepfeiyu-mood-face { font-size: 16px; }
 .dsh-deepfeiyu-mood-value { font-size: 12px; font-variant-numeric: tabular-nums; }
 .dsh-deepfeiyu-mood-panel { width: 220px; padding: 10px 12px; border: 1px solid var(--dsw-alias-border-l2, #0000001a); border-radius: 12px; background: var(--dsw-alias-bg-layer-1, #fff); }
+.dsh-deepfeiyu-risklist strong { color: var(--dsw-alias-label-primary, #0f1115); }
+.dsh-deepfeiyu-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 10px; }
+.dsh-deepfeiyu-tab { appearance: none; margin: 0; padding: 5px 12px; border: 1px solid var(--dsw-alias-border-l2, #0000001a); border-radius: 8px; background: var(--dsw-alias-button-elevated-fill, #fff); color: var(--dsw-alias-label-secondary, #61666b); font: inherit; font-size: 13px; line-height: 20px; cursor: pointer; }
+.dsh-deepfeiyu-tab:hover:not([aria-selected="true"]) { background: var(--dsw-alias-interactive-bg-hover, #2631480f); }
+.dsh-deepfeiyu-tab[aria-selected="true"] { border-color: transparent; background: var(--dsw-alias-button-primary-fill, #0f1115); color: var(--dsw-alias-label-primary-foreground, #fff); }
+.dsh-deepfeiyu-tab:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary, #4176e6); outline-offset: 1px; }
+.dsh-deepfeiyu-tabpanel { display: flex; flex-direction: column; gap: 12px; }
+.dsh-deepfeiyu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px 14px; }
+.dsh-deepfeiyu-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.dsh-deepfeiyu-field > span { font-size: 12.5px; color: var(--dsw-alias-label-secondary, #61666b); }
+.dsh-deepfeiyu-field input, .dsh-deepfeiyu-field textarea, .dsh-deepfeiyu-field select { box-sizing: border-box; width: 100%; padding: 5px 9px; border: 1px solid var(--dsw-alias-border-l2, #0000001a); border-radius: 6px; background: var(--dsw-alias-bg-base, #fff); color: var(--dsw-alias-label-primary, #0f1115); font: inherit; font-size: 13px; line-height: 20px; }
+.dsh-deepfeiyu-field > em { font-size: 11.5px; line-height: 16px; color: var(--dsw-alias-label-tertiary, #81858c); font-style: normal; }
+.dsh-deepfeiyu-toggle-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--dsw-alias-border-l1, #0000000a); }
+.dsh-deepfeiyu-toggle-row:last-child { border-bottom: 0; }
+.dsh-deepfeiyu-toggle-text { min-width: 0; }
+.dsh-deepfeiyu-toggle-text strong { display: block; font-size: 13px; font-weight: 500; color: var(--dsw-alias-label-primary, #0f1115); }
+.dsh-deepfeiyu-toggle-text em { display: block; font-size: 11.5px; font-style: normal; color: var(--dsw-alias-label-tertiary, #81858c); overflow-wrap: anywhere; }
+.dsh-deepfeiyu-form-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+.dsh-deepfeiyu-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.dsh-deepfeiyu-chip { appearance: none; margin: 0; padding: 3px 10px; border: 1px solid var(--dsw-alias-border-l2, #0000001a); border-radius: 999px; background: var(--dsw-alias-button-elevated-fill, #fff); color: var(--dsw-alias-label-secondary, #61666b); font: inherit; font-size: 12px; line-height: 18px; cursor: pointer; }
+.dsh-deepfeiyu-chip.on { border-color: transparent; background: var(--dsw-alias-button-primary-fill, #0f1115); color: var(--dsw-alias-label-primary-foreground, #fff); }
+.dsh-deepfeiyu-chip.warn { border-color: var(--dsw-alias-state-warn-primary, #f59e0b); }
+.dsh-deepfeiyu-btn-on { border-color: transparent; background: var(--dsw-alias-state-business-primary, #4176e6); color: var(--dsw-alias-label-primary-foreground, #fff); }
+.dsh-deepfeiyu-risklist { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; line-height: 19px; color: var(--dsw-alias-label-secondary, #61666b); }
 @media (max-width: 900px) {
   .dsh-deepfeiyu-body { grid-template-columns: 240px minmax(0, 1fr); }
   .dsh-deepfeiyu-root { padding: 16px 16px 12px; }
@@ -193,6 +217,9 @@ window.__ModuleLoader__.load({
   .dsh-deepfeiyu-title { font-size: 17px; line-height: 24px; }
 }
 `;
+
+    // 设置页标签：P1 四个，P2 会插入「账号与通道」（规格 §5）。
+    const SETTINGS_TABS = [['deps', '依赖与融合']];
 
     // ---------------------------------------------------------------- 纯展示辅助
 
@@ -917,6 +944,8 @@ window.__ModuleLoader__.load({
           const [fusion, setFusion] = React.useState(null);
           const [fusionError, setFusionError] = React.useState('');
           const [fusionPending, setFusionPending] = React.useState(false);
+          // 页内标签：P1 四个，随各任务加入；默认依赖与融合保持原习惯（规格 §7）。
+          const [tab, setTab] = React.useState('deps');
 
           function clearLogTimer() {
             if (logTimer.current) {
@@ -1138,23 +1167,30 @@ window.__ModuleLoader__.load({
             }
           }
 
-          // 依赖状态轮询：挂载立即拉一次，之后每 4s；页面在后台时跳过。
+          // 组件生命周期与日志定时器只在挂载/卸载时处理：
+          // 拆出来是为了让标签切换的轮询 effect 可以重跑，而安装日志轮询不被打断。
           React.useEffect(() => {
             mounted.current = true;
-            const tick = () => {
-              if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
-              void loadDeps();
-              void loadDshPlugins();
-              void loadFusion();
-            };
-            tick();
-            const timer = window.setInterval(tick, POLL_MS);
             return () => {
               mounted.current = false;
-              window.clearInterval(timer);
               clearLogTimer();
             };
           }, []);
+
+          // 数据轮询跟随当前标签：打开标签立即拉一次，之后每 4s；页面在后台时跳过。
+          React.useEffect(() => {
+            const tick = () => {
+              if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+              if (tab === 'deps') {
+                void loadDeps();
+                void loadDshPlugins();
+                void loadFusion();
+              }
+            };
+            tick();
+            const timer = window.setInterval(tick, POLL_MS);
+            return () => window.clearInterval(timer);
+          }, [tab]);
 
           // 安装 DSH 插件期间用更快的轮询拿结果（大包可能下载几分钟）；其余时间跟随 4s 主轮询。
           const dshInstallingId = dshPlugins && dshPlugins.installing ? String(dshPlugins.installing) : '';
@@ -1180,6 +1216,24 @@ window.__ModuleLoader__.load({
               title: settings.title,
               onClick,
             }, label);
+          }
+
+          function TabBar() {
+            return h('div', {
+              className: 'dsh-deepfeiyu-tabs',
+              role: 'tablist',
+              'aria-label': 'Deep肥鱼设置分组',
+            },
+            SETTINGS_TABS.map(([id, label]) => h('button', {
+              key: id,
+              type: 'button',
+              role: 'tab',
+              id: 'dsh-tab-' + id,
+              'aria-controls': 'dsh-tabpanel-' + id,
+              'aria-selected': tab === id,
+              className: 'dsh-deepfeiyu-tab',
+              onClick: () => setTab(id),
+            }, label)));
           }
 
           function renderDepsError() {
@@ -1406,11 +1460,13 @@ window.__ModuleLoader__.load({
             ? features.find((item) => item && String(item.id) === log.feature) || null
             : null;
 
-          return h('div', { className: 'dsh-deepfeiyu-settings' },
-            h('style', null, STYLES),
-            h('div', { className: 'dsh-deepfeiyu-heading' },
-              h('h2', { className: 'dsh-deepfeiyu-settings-title' }, 'Deep肥鱼 · 依赖环境'),
-              h('p', { className: 'dsh-deepfeiyu-meta' }, '控制台各可选功能的 Python 依赖；装完按提示重启控制台。')),
+          function renderDepsTab() {
+            return h('div', {
+              role: 'tabpanel',
+              id: 'dsh-tabpanel-deps',
+              'aria-labelledby': 'dsh-tab-deps',
+              className: 'dsh-deepfeiyu-tabpanel',
+            },
             renderDepsError(),
             deps
               ? h('div', { className: 'dsh-deepfeiyu-dep-list' },
@@ -1421,6 +1477,15 @@ window.__ModuleLoader__.load({
             renderLog(),
             renderDshPluginsSection(),
             renderFusionSection());
+          }
+
+          return h('div', { className: 'dsh-deepfeiyu-settings' },
+            h('style', null, STYLES),
+            h('div', { className: 'dsh-deepfeiyu-heading' },
+              h('h2', { className: 'dsh-deepfeiyu-settings-title' }, 'Deep肥鱼 · 设置'),
+              h('p', { className: 'dsh-deepfeiyu-meta' }, '控制台的设置、依赖与融合；状态以控制台为准，保存后就地刷新。')),
+            h(TabBar),
+            tab === 'deps' ? renderDepsTab() : null);
         }
 
         // 右下角心情挂饰：只读共享状态，20s 轮询；控制台不可达时显示“—”。

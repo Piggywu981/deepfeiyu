@@ -254,6 +254,22 @@ def test_settings_routes_registered():
     assert "patch 必须是对象" in route
 
 
+def test_settings_page_tab_shell():
+    """设置页改为页内标签壳：默认依赖与融合，原三块迁入 deps 标签。"""
+    source = (PKG / "client.js").read_text(encoding="utf-8")
+    for token in ("SETTINGS_TABS", "function TabBar", "role: 'tab'", "aria-selected",
+                  "renderDepsTab", "dsh-tabpanel-deps", "dsh-deepfeiyu-tabs",
+                  "Deep肥鱼 · 设置", "React.useState('deps')"):
+        assert token in source, f"client.js 缺少 {token}"
+    # 原三块必须仍由 deps 标签渲染（不回归）
+    for token in ("renderDshPluginsSection()", "renderFusionSection()", "renderLog()"):
+        assert token in source, f"依赖标签丢了 {token}"
+    # 轮询跟随标签：只有 deps 分支拉依赖数据
+    assert "if (tab === 'deps')" in source
+    # 旧标题必须改名，避免与标签语义冲突
+    assert "Deep肥鱼 · 依赖环境" not in source
+
+
 def test_js_syntax():
     node = shutil.which("node")
     if not node:
