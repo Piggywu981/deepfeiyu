@@ -25,12 +25,29 @@
 
 ## 安装
 
-1. 先在项目根运行一次 `run.bat`（或等价命令）完成 `.venv` 与依赖安装；插件不会替你下载依赖。
-2. 在 DSH 里安装本地 bundle（绝对路径指向本目录）：
-   - 插件管理页选择「安装本地目录」，或
-   - 让智能体调用 `plugin_manager`：`action=install_bundle`，`target=<仓库根>/dsh-plugin`。
-3. 安装结果以 `application` 字段为准；首次安装后刷新页面以加载 Client 模块。
-4. 替换已安装的插件包后需要一次插件重载（在插件页把「Deep肥鱼」关一次再打开，或重启 Harness）才会加载新的 Host JS；只刷新页面只更新 Client 半。
+插件是**无构建**的 Cordis bundle，本身**不含** Python 控制台：它只负责探测/拉起仓库根的控制台进程。所以任何人安装前都必须先拿到本仓库并完成一次环境准备。
+
+### 前置（所有安装方式都一样）
+
+1. 拿到仓库：`git clone`，或下载 Release 的源码包（压缩包自带 `dsh-plugin/`，不需要单独下载插件）。
+2. 在**仓库根**运行一次 `run.bat`（非 Windows：等价的 `python -m venv .venv` + `pip install -r requirements.txt`），确认 `.venv` 可用。插件不会替你下载 Python 依赖；`.venv` 缺失时面板给出「先运行 run.bat」的可读错误。
+3. 本插件在 DSH `0.2.1-rc.5` 上实机验证；其他版本未验证（`package.json` 未声明 `engines.dsh`，DSH 不会拦，但兼容性以实测为准）。
+
+### 三种安装方式
+
+| 场景 | 步骤 | 注意 |
+|---|---|---|
+| **A. 源码 / Release 包（推荐）** | ① 克隆或解压仓库 ② 仓库根跑 `run.bat` ③ DSH 插件管理页「安装本地目录」选 `<仓库根>/dsh-plugin` | 默认 `projectDir` = 插件目录的上一级，正好是仓库根，不用改配置 |
+| **B. 只拷插件目录** | ① 把 `dsh-plugin/` 拷到任意位置 ② 安装该目录 ③ 在插件配置里写 `projectDir: <仓库根>` | 不写 `projectDir` 时插件会去错误位置找 `.venv`，面板报「找不到 Python」 |
+| **C. 让智能体装** | 让 DSH 里的智能体调用 `plugin_manager`：`action=install_bundle`，`target=<绝对路径>/dsh-plugin` | 与 A 等价；以返回的 `application` 为 `applied` 为准 |
+
+`plugin_manager install_bundle` 也接受 registry 名称、git 地址与 tarball，但**本插件尚未发布到 npm**（包名 `deepfeiyu-dsh` 只用于本地/未来发布），所以当前只能按上面三种本地路径方式安装。
+
+### 安装之后
+
+4. 刷新 DSH 页面（首次安装要加载新的 Client 模块）。
+5. 替换已安装的插件包后需要一次插件重载（插件页把「Deep肥鱼」关一次再打开，或重启 Harness）才会加载新的 Host JS；只刷新页面只更新 Client 半。
+6. 首次激活时 `mode=auto`、`autostart=true`：先探测控制台，没运行就用 `<projectDir>/.venv` 的 Python 拉起 `-m app.main`；已经在运行则直接附着。
 
 ## 配置
 
@@ -38,7 +55,7 @@
 
 ```yaml
 - id: deepfeiyu
-  name: '@local/deepfeiyu-dsh'
+  name: deepfeiyu-dsh
   config:
     mode: auto
     autostart: true
@@ -151,6 +168,6 @@ Host 侧新增 8 个同源代理端点：`settings.get / settings.put / settings
 
 ## 卸载与回滚
 
-- DSH 插件页关闭并移除此 bundle，或让智能体调用 `plugin_manager` 移除 `@local/deepfeiyu-dsh`；
+- DSH 插件页关闭并移除此 bundle，或让智能体调用 `plugin_manager` 移除 `deepfeiyu-dsh`；
 - 刷新页面；插件卸载时会终止**它自己拉起**的控制台进程（`attach` 模式下不会动外部实例）；
 - 仓库侧回滚：丢弃对应分支即可，本插件不在 `main` 上、不改动既有 Python 行为（仅新增 `source` 参数，默认值保持 `human`）。
