@@ -2,7 +2,7 @@
 // Host 半用 ctx.webServer 注册同源前缀路由 /deepfeiyu（自带 Cookie/Host/Origin 鉴权）；
 // 面板只经同源 fetch POST JSON，全部请求收敛在 apply 内唯一的 call() 里，便于以后换传输层。
 window.__ModuleLoader__.load({
-  id: '@local/deepfeiyu-dsh',
+  id: 'deepfeiyu-dsh',
   factory(require) {
     const React = require('react');
     const h = React.createElement;

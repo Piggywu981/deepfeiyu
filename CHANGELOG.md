@@ -33,6 +33,14 @@
 - `tests/test_dsh_plugin.py` 补充白名单、路由只转发 id、Client 二次确认与 README 说明的静态断言。
 - 验证状态：`tests/test_dsh_plugin.py` 16 passed；`node --check` 覆盖 `client.js` / `lib/route.js` / `lib/dsh-plugins.js`；另用临时假 ctx 脚本（未入库）验证了白名单安装、未知 id 拒绝、已安装拒绝、缺 `pluginManager` 时的降级等 17 项断言。插件已通过「关/开一次」重载，控制台随之重启并恢复 running；`settings.section` occupant `deepfeiyu` 仍在。**验证期间没有实际下载/安装任何第三方 bundle**；设置页的真实点击与装后效果待用户确认。
 
+### 2026-11-02 · 插件可分发给他人：改公开包名、补安装文档
+
+- DSH 插件包名由 `@local/deepfeiyu-dsh` 改为 `deepfeiyu-dsh`，并去掉 `private: true`（`@local/` 前缀与 private 都不允许发布到 registry，其他人只能靠本地路径装）；补上 `license: PolyForm-Noncommercial-1.0.0`。
+- `cordis.patch.yml` 的 insert 行名、`client.js` 的模块 id、`dsh-plugin/README.md`、`tests/test_dsh_plugin.py` 同步；测试新增「patch 行名必须等于 package.json 名」的断言。
+- 安装文档重写为「前置 + 三种安装方式（源码/Release 包、只拷插件目录、智能体代装）+ 安装之后」，写清 `.venv` 前置、`projectDir` 必填场景、DSH `0.2.1-rc.5` 实机验证范围，以及当前未发布 npm 的事实；根 README 7.5 与 `docs/使用说明.md` 第 16 节补「其他人怎么装」。
+- 本机已按新包名重装 profile（`deepfeiyu-dsh` → `link:E:/Gitee/deepfeiyu/dsh-plugin`），旧 `@local/deepfeiyu-dsh` 依赖已移除。
+- 验证状态：`tests/test_dsh_plugin.py` 31 passed、`tests/test_dsh_settings_contract.py` 4 passed；全量 `pytest` 为 1496 passed / 6 failed / 0 skipped（6 个均为基线环境失败：缺 `vendor/dsh-feiyu-pet`、`vendor/dsh-whale-widget` 子模块），0 新增失败；`node --check` 全过。**其他人按文档安装的全流程未在两台以上机器实测**。
+
 ### 2026-11-02 · 完整设置缝进插件设置（P1）
 
 - DSH「设置 → Deep肥鱼」改为页内标签：**模型与人格 / 自动回复 / 依赖与融合 / 更新与边界**（P2 将加入账号与通道）。依赖与融合三块（可选功能依赖、关联 DSH 插件、心情与桌宠融合）原样迁入「依赖与融合」标签，懒加载改为"打开标签才拉、之后只轮询当前标签"，切标签不再打断安装日志轮询。

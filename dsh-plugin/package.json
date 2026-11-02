@@ -1,8 +1,8 @@
 {
-  "name": "@local/deepfeiyu-dsh",
+  "name": "deepfeiyu-dsh",
   "version": "0.1.0",
-  "private": true,
   "description": "在 DeepSeek Harness 中使用 Deep肥鱼微信智能体控制台",
+  "license": "PolyForm-Noncommercial-1.0.0",
   "type": "module",
   "exports": {
     ".": "./index.js",

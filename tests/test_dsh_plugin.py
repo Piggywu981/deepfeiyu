@@ -40,8 +40,10 @@ def _js_files() -> list[Path]:
 
 def test_manifest_required_fields():
     data = _manifest()
-    assert data["name"] == "@local/deepfeiyu-dsh"
-    assert data["private"] is True
+    # 分发给其他人时用公开包名；private 必须去掉，否则无法发布到 registry。
+    assert data["name"] == "deepfeiyu-dsh"
+    assert "private" not in data
+    assert data["license"] == "PolyForm-Noncommercial-1.0.0"
     assert data["type"] == "module"
     assert data["dsh"]["bundle"]["patch"] == "./cordis.patch.yml"
     assert data["dsh"]["client"]["platform"] == "web"
@@ -59,7 +61,9 @@ def test_patch_inserts_bundle_row():
         None,
     )
     assert row is not None, "cordis.patch.yml 没有 id=deepfeiyu 的 insert 行"
-    assert row["name"] == "@local/deepfeiyu-dsh"
+    # patch 行名必须与 package.json 名一致，否则 profile 解析不到模块
+    assert row["name"] == "deepfeiyu-dsh"
+    assert row["name"] == _manifest()["name"]
     # 安装后必须有默认 config，否则 Host 侧 apply 拿到 undefined
     assert isinstance(row.get("config"), dict)
     assert row["config"].get("mode") in ("auto", "attach")
