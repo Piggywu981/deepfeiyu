@@ -90,6 +90,13 @@ export function createConsoleApi({ getConfig, getToken }) {
     },
     stats: () => call('/api/stats'),
     capabilities: () => call('/api/capabilities'),
+    // DSH 融合：绑定/共享心情/宠物事件全部走控制台；判断提示词也由控制台渲染。
+    dshState: () => call('/api/dsh/state'),
+    dshConfig: (patch) => call('/api/dsh/config', { method: 'POST', body: patch, timeoutMs: 15000 }),
+    dshTimeline: (limit = 20) => call(`/api/dsh/timeline?limit=${Math.max(1, Math.min(100, Math.trunc(Number(limit) || 20)))}`),
+    dshJudgePrompt: () => call('/api/dsh/judge-prompt', { timeoutMs: 15000 }),
+    dshMoodEvent: (payload) => call('/api/dsh/mood-event', { method: 'POST', body: payload, timeoutMs: 20000 }),
+    dshPetEvent: (payload) => call('/api/dsh/pet-event', { method: 'POST', body: payload, timeoutMs: 5000 }),
     // 依赖管理：控制台按功能 id 返回状态、异步启动安装、按偏移增量读日志。
     // 安装是后台任务，POST 只负责启动，所以超时放宽到 15s；日志接口可能因缓冲重置返回 reset。
     depsState: () => call('/api/deps/state'),

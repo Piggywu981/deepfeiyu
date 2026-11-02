@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { createConsoleApi, resolveToken } from './lib/ops.js'
 import { createSupervisor } from './lib/supervisor.js'
 import { createSendGate } from './lib/approval.js'
+import { createFusion } from './lib/fusion.js'
 import { registerTools } from './lib/tools.js'
 import { registerRoute } from './lib/route.js'
 
@@ -94,6 +95,10 @@ export function apply(ctx, rawConfig) {
 
   registerTools({ ctx, config, api, state, snapshot, supervisor, sendGate })
   registerRoute({ ctx, config, api, state, snapshot, supervisor, sendGate })
+
+  // DSH 融合：监听 Harness 会话事件（只为共享心情/桌宠），控制台不可达时静默丢弃。
+  const fusion = createFusion({ ctx, config, api })
+  ctx.effect(() => () => fusion.dispose(), 'deepfeiyu.fusion')
 
   ctx.effect(() => () => supervisor.dispose(), 'deepfeiyu.supervisor')
 

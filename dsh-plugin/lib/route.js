@@ -98,6 +98,20 @@ export function registerRoute({ ctx, config, api, state, snapshot, supervisor, s
       if (!id) throw Object.assign(new Error('缺少 id'), { code: 'INVALID_ARGS' })
       return await dshPlugins.install(id)
     },
+    // DSH 融合：代理控制台 /api/dsh/*；config 只接受白名单字段。
+    'fusion.state': async () => api.dshState(),
+    'fusion.config': async (payload) => {
+      const patch = {}
+      if (typeof payload.account_id === 'string') patch.account_id = payload.account_id
+      for (const key of ('judge_enabled', 'pet_events_enabled', 'cross_reason_enabled')) {
+        if (typeof payload[key] === 'boolean') patch[key] = payload[key]
+      }
+      if (!Object.keys(patch).length) {
+        throw Object.assign(new Error('没有可更新的字段'), { code: 'INVALID_ARGS' })
+      }
+      return await api.dshConfig(patch)
+    },
+    'fusion.timeline': async (payload) => await api.dshTimeline(payload.limit),
   }
 
   async function handler(req, res) {

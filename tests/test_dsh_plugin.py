@@ -191,6 +191,29 @@ def test_readme_documents_dsh_plugin_install():
         assert token in text, f"README 缺少 {token}"
 
 
+def test_fusion_module_collects_events_and_posts_pet_events():
+    source = (PKG / "lib" / "fusion.js").read_text(encoding="utf-8")
+    for token in ("session/event", "user/message", "assistant/message",
+                  "tool/call", "tool/result", "turn/end",
+                  "dshPetEvent", "turn_start", "tool_start", "postPet", "dispose"):
+        assert token in source, f"lib/fusion.js 缺少 {token}"
+
+
+def test_fusion_routes_registered():
+    route = (PKG / "lib" / "route.js").read_text(encoding="utf-8")
+    ops = (PKG / "lib" / "ops.js").read_text(encoding="utf-8")
+    for endpoint in ("fusion.state", "fusion.config", "fusion.timeline"):
+        assert f"'{endpoint}'" in route, f"route.js 缺少 {endpoint}"
+    for path in ("/api/dsh/state", "/api/dsh/config", "/api/dsh/timeline",
+                 "/api/dsh/judge-prompt", "/api/dsh/mood-event", "/api/dsh/pet-event"):
+        assert path in ops, f"ops.js 缺少 {path}"
+
+
+def test_index_wires_fusion_with_disposer():
+    source = (PKG / "index.js").read_text(encoding="utf-8")
+    assert "createFusion" in source and "fusion.dispose" in source
+
+
 def test_js_syntax():
     node = shutil.which("node")
     if not node:
