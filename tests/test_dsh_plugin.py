@@ -214,6 +214,14 @@ def test_index_wires_fusion_with_disposer():
     assert "createFusion" in source and "fusion.dispose" in source
 
 
+def test_fusion_judges_mood_and_injects_prompt_context():
+    source = (PKG / "lib" / "fusion.js").read_text(encoding="utf-8")
+    for token in ("dshJudgePrompt", "dshMoodEvent", "agentDefaultModel",
+                  "streamText(", "systemPrompt", "context(", "deepfeiyu.mood",
+                  "JUDGE_MIN_GAP_MS", "JUDGE_DAILY_MAX", "parseJudge"):
+        assert token in source, f"lib/fusion.js 缺少 {token}"
+
+
 def test_js_syntax():
     node = shutil.which("node")
     if not node:
