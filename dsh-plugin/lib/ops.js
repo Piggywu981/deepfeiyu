@@ -109,6 +109,15 @@ export function createConsoleApi({ getConfig, getToken }) {
       body: { text, source },
       timeoutMs: getConfig().sendTimeoutMs,
     }),
+    // 设置页 P1：模型/人格/更新转发控制台既有 API；写入走窄补丁，响应由控制台校验。
+    settingsGet: () => call('/api/settings'),
+    settingsPut: (patch) => call('/api/settings', { method: 'PUT', body: patch, timeoutMs: 15000 }),
+    settingsTestAi: (payload) => call('/api/settings/test-ai', { method: 'POST', body: payload, timeoutMs: 30000 }),
+    personasList: () => call('/api/personas'),
+    personasAdd: (payload) => call('/api/personas', { method: 'POST', body: payload, timeoutMs: 15000 }),
+    personasDelete: (name) => call(`/api/personas/${encodeURIComponent(name)}`, { method: 'DELETE' }),
+    personasSyncWiki: () => call('/api/personas/sync_wiki', { method: 'POST', body: {}, timeoutMs: 60000 }),
+    updateCheck: () => call('/api/update/check?force=1', { timeoutMs: 30000 }),
   }
 }
 

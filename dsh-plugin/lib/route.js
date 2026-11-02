@@ -112,6 +112,42 @@ export function registerRoute({ ctx, config, api, state, snapshot, supervisor, s
       return await api.dshConfig(patch)
     },
     'fusion.timeline': async (payload) => await api.dshTimeline(payload.limit),
+    // 设置页 P1：只透传；settings.put 的窄补丁由 Client 组装，这里只查形状。
+    'settings.get': async () => api.settingsGet(),
+    'settings.put': async (payload) => {
+      const patch = payload && typeof payload.patch === 'object' && payload.patch !== null
+        && !Array.isArray(payload.patch)
+        ? payload.patch
+        : null
+      if (!patch) throw Object.assign(new Error('patch 必须是对象'), { code: 'INVALID_ARGS' })
+      return await api.settingsPut(patch)
+    },
+    'settings.testAi': async (payload) => {
+      const body = {}
+      for (const key of ['base_url', 'api_key', 'model']) {
+        if (typeof payload[key] === 'string') body[key] = payload[key]
+      }
+      return await api.settingsTestAi(body)
+    },
+    'personas.list': async () => api.personasList(),
+    'personas.add': async (payload) => {
+      if (!payload.name || typeof payload.name !== 'string') {
+        throw Object.assign(new Error('缺少 name'), { code: 'INVALID_ARGS' })
+      }
+      return await api.personasAdd({
+        name: payload.name,
+        persona_name: typeof payload.persona_name === 'string' ? payload.persona_name : '',
+        system_prompt: typeof payload.system_prompt === 'string' ? payload.system_prompt : '',
+      })
+    },
+    'personas.delete': async (payload) => {
+      if (!payload.name || typeof payload.name !== 'string') {
+        throw Object.assign(new Error('缺少 name'), { code: 'INVALID_ARGS' })
+      }
+      return await api.personasDelete(payload.name)
+    },
+    'personas.syncWiki': async () => api.personasSyncWiki(),
+    'update.check': async () => api.updateCheck(),
   }
 
   async function handler(req, res) {

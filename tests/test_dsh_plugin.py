@@ -238,6 +238,22 @@ def test_client_registers_mood_overlay():
         assert token in source, f"client.js 缺少 {token}"
 
 
+def test_settings_routes_registered():
+    """设置页 P1 的 8 个 endpoint 必须在 Host 路由与 ops 层都登记。"""
+    route = (PKG / "lib" / "route.js").read_text(encoding="utf-8")
+    ops = (PKG / "lib" / "ops.js").read_text(encoding="utf-8")
+    for endpoint in ("settings.get", "settings.put", "settings.testAi",
+                     "personas.list", "personas.add", "personas.delete",
+                     "personas.syncWiki", "update.check"):
+        assert f"'{endpoint}'" in route, f"route.js 缺少 {endpoint}"
+    for method in ("settingsGet", "settingsPut", "settingsTestAi",
+                   "personasList", "personasAdd", "personasDelete",
+                   "personasSyncWiki", "updateCheck"):
+        assert method in ops, f"ops.js 缺少 {method}"
+    # settings.put 必须校验 patch 形状，不能把任意值透传给配置接口
+    assert "patch 必须是对象" in route
+
+
 def test_js_syntax():
     node = shutil.which("node")
     if not node:
