@@ -58,15 +58,28 @@
 | `sendTimeoutMs` | `60000` | 发送超时（服务端节流可能排队） |
 | `panelTitle` | `Deep肥鱼` | 面板标题 |
 
-## 设置页：依赖环境
+## 设置页：分标签的完整设置
 
-在 Harness「设置 → Deep肥鱼」中列出控制台六个可选功能（core / weixin4 / moments / pet / wcferry / bili）的 Python 依赖状态：
+在 Harness「设置 → Deep肥鱼」里用页内标签管理（P1 四个，P2 将加入「账号与通道」）：
 
-- 每行显示状态徽标（已安装 / 未安装 / 缺少 N 项 / 不支持当前系统 / 安装中）、说明与缺失项；
-- 点「一键安装」（已装则「重新安装」）后，页面内的终端窗口每 800ms 拉取增量日志，完成或失败会显示结论；已安装或失败过的功能可「查看日志」；
-- 控制台未运行时页面直接显示原因与「启动控制台」按钮，不静默失败。
+| 标签 | 内容 | 数据来源 |
+|---|---|---|
+| 模型与人格 | 模型档切换、Base URL/模型/Key、温度、视觉/联网/记忆开关、记忆 v2 参数、Embedding、系统提示词、人格名、人格预设（应用/保存/删除/图集同步）、测试连接 | `GET/PUT /api/settings`、`/api/settings/test-ai`、`/api/personas*` |
+| 自动回复 | 自动回复策略、表情包与串子、跨对话 | `GET/PUT /api/settings`（窄补丁） |
+| 依赖与融合 | 六个可选功能依赖一键安装、关联 DSH 插件、心情与桌宠融合 | 既有 `deps.*` / `dshPlugins.*` / `fusion.*` |
+| 更新与边界 | 检查更新、使用边界说明 | `GET /api/update/check` |
 
-Host 侧仅新增三个同源代理端点：`POST /deepfeiyu/deps.state`、`deps.install`、`deps.log`，转发到控制台的 `/api/deps/*`。安装仍由控制台执行：本机来源限制、访问令牌校验与固定的依赖白名单命令都不变，插件不新增任何 shell 执行能力。安装完成后按页面提示重启控制台。
+要点：
+
+- 标签懒加载：打开哪个标签才拉哪个标签的数据，之后每 4s 轮询当前标签；切标签不打断安装日志轮询。
+- **只发窄补丁**：保存只提交该标签表单涉及的字段，绝不把 `GET /api/settings` 的返回原样 PUT 回去（其中含 `configured`、档位投影与掩码串）。
+- 密钥沿用控制台契约：API Key 只回显掩码与占位符，空值不覆盖；`••••` 掩码串原样回传由控制台还原真值。
+- 控制台是唯一状态源：保存成功后用服务端返回的配置重建草稿；单标签加载/保存失败只在该标签内报错。
+- 控制台未运行时标签内显示原因与「启动控制台」按钮，不静默失败。
+
+Host 侧新增 8 个同源代理端点：`settings.get / settings.put / settings.testAi / personas.list / personas.add / personas.delete / personas.syncWiki / update.check`；`settings.put` 只接受对象形态的 `patch`。控制台侧本机来源限制与令牌校验不变。
+
+「依赖与融合」标签里的安装动作仍走既有的 `deps.state / deps.install / deps.log` 转发到控制台 `/api/deps/*`：本机来源限制、访问令牌校验与固定的依赖白名单命令都不变，插件不新增任何 shell 执行能力；控制台未运行时标签内显示原因与「启动控制台」按钮。
 
 ## 设置页：关联 DSH 插件
 

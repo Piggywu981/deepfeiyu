@@ -33,6 +33,17 @@
 - `tests/test_dsh_plugin.py` 补充白名单、路由只转发 id、Client 二次确认与 README 说明的静态断言。
 - 验证状态：`tests/test_dsh_plugin.py` 16 passed；`node --check` 覆盖 `client.js` / `lib/route.js` / `lib/dsh-plugins.js`；另用临时假 ctx 脚本（未入库）验证了白名单安装、未知 id 拒绝、已安装拒绝、缺 `pluginManager` 时的降级等 17 项断言。插件已通过「关/开一次」重载，控制台随之重启并恢复 running；`settings.section` occupant `deepfeiyu` 仍在。**验证期间没有实际下载/安装任何第三方 bundle**；设置页的真实点击与装后效果待用户确认。
 
+### 2026-11-02 · 完整设置缝进插件设置（P1）
+
+- DSH「设置 → Deep肥鱼」改为页内标签：**模型与人格 / 自动回复 / 依赖与融合 / 更新与边界**（P2 将加入账号与通道）。依赖与融合三块（可选功能依赖、关联 DSH 插件、心情与桌宠融合）原样迁入「依赖与融合」标签，懒加载改为"打开标签才拉、之后只轮询当前标签"，切标签不再打断安装日志轮询。
+- Host 新增 8 个同源代理端点：`settings.get / settings.put / settings.testAi / personas.list / personas.add / personas.delete / personas.syncWiki / update.check`；`settings.put` 只接受对象形态的窄补丁，拒绝把任意值透传给配置接口。
+- 模型与人格标签：模型档切换（切档前先落回未保存的地址/模型，与控制台一致）、Base URL/模型/Key/温度、视觉/联网/记忆开关、记忆 v2 参数、Embedding、系统提示词、人格名、人格预设（应用/保存/删除/图集同步）、测试连接。
+- 自动回复标签：总开关、群聊 @、拍一拍、白/黑名单、间隔/日上限、接管暂停、前缀/超时/兜底、拆分回复、表情包与串子、跨对话；保存只发本页字段的窄补丁，与模型草稿互不覆盖。
+- 更新与边界标签：首次打开自动检查一次后仅手动（不每 4s 打 Gitee）、仓库入口走宿主侧栏浏览器、使用边界静态文案与协议入口。
+- 密钥契约不变：API Key 只回显掩码与占位符、空值不覆盖；掩码串原样回传由控制台 `_unmask_secrets` 还原——新增 `tests/test_dsh_settings_contract.py` 把这三条与端点登记固化成测试。
+- `README.md`、`dsh-plugin/README.md`、`docs/使用说明.md` 同步。
+- 验证状态：`tests/test_dsh_settings_contract.py` 4 passed、`tests/test_dsh_plugin.py` 31 passed；全量 `pytest` 为 1496 passed / 6 failed / 0 skipped，6 个失败均为基线已知环境失败（缺 `vendor/dsh-feiyu-pet`、`vendor/dsh-whale-widget` 子模块），0 个新增失败；`node --check` 全过；假 ctx 冒烟 7 项断言全过。**真实安装/切档/保存未在浏览器里人工点击验收**。
+
 ### 2026-11-02 · 桌宠与心情双端融合
 
 - 控制台新增 `app/dsh_bridge/` 与 `/api/dsh/*` 六个端点（state / config / mood-event / pet-event / timeline / judge-prompt）：DSH 绑定一个微信账号后，Harness 与微信共享同一份心情；判断结果由 DSH 产出、控制台统一校验落库（`source=dsh`），不新增数据库表/列。
