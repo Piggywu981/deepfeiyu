@@ -393,7 +393,7 @@ Python 插件与应用同权限运行，只装你信任的代码。
 **安装**
 
 1. 先在仓库根目录跑一次 `run.bat`，确认 `.venv` 可用；插件不负责装 Python 依赖，`.venv` 缺失时面板会给出「先运行 run.bat」的可读错误。
-2. 在 DSH 的插件管理界面里安装本地目录 `dsh-plugin/`；或让 DSH 里的智能体用 `plugin_manager` 安装本地目录（`action=install_bundle`，`target` 填 `dsh-plugin/` 的绝对路径）。
+2. 在 DSH 的插件管理界面里安装本地目录 `dsh-plugin/`；或让 DSH 里的智能体用 `plugin_manager` 安装本地目录（`action=install_bundle`，`target` 填 `dsh-plugin/` 的绝对路径）。`target` 也可填公开包名 `deepfeiyu-dsh` 从 npm 安装，但按包名装时包装进 profile 的 `node_modules`，**必须**在插件配置里把 `projectDir` 指向本仓库根（不配则面板报「projectDir 不是 Deep肥鱼仓库根」）。
 3. 安装后刷新 DSH 页面（首次安装要加载新的 Client 模块）；替换已装包后需要一次插件重载（在插件页把「Deep肥鱼」关一次再打开，或重启 Harness）才会加载新的 Host 代码。
 4. 默认 `mode=auto`、`autostart=true`：插件激活时先探测控制台，没运行就用本仓库 `.venv` 的 Python 拉起 `-m app.main`；已经在运行则直接附着。只想附着、不许插件拉起进程，把 `mode` 改成 `attach`。
 5. **给别人装**：对方同样要先拿到本仓库（`git clone` 或 Release 源码包，压缩包已含 `dsh-plugin/`）并在仓库根跑一次 `run.bat`，再按上一步装 `<仓库根>/dsh-plugin`。若只把 `dsh-plugin/` 单独拷走安装，必须在插件配置里写 `projectDir: <仓库根>`，否则插件找不到 `.venv`。详见 [`dsh-plugin/README.md`](dsh-plugin/README.md#安装)。
@@ -404,7 +404,7 @@ Python 插件与应用同权限运行，只装你信任的代码。
 
 | 字段 | 默认 | 说明 |
 |---|---|---|
-| `projectDir` | 由插件包位置推断（`dsh-plugin/` 的上一级） | Deep肥鱼仓库根，可覆盖；只装 `dsh-plugin/` 目录时必须显式指定 |
+| `projectDir` | 由插件包位置推断（`dsh-plugin/` 的上一级） | Deep肥鱼仓库根，可覆盖；只装 `dsh-plugin/` 目录或按包名（npm）安装时必须显式指定 |
 | `pythonPath` | `<projectDir>/.venv/Scripts/python.exe`（非 Windows 为 `.venv/bin/python`） | 拉起控制台用的解释器；不存在时报可读错误，不自动下载依赖 |
 | `mode` | `auto` | `auto` 自动拉起；`attach` 只探测、不拉起 |
 | `autostart` | `true` | 仅 `mode=auto` 时生效：插件激活即拉起 |

@@ -4,6 +4,15 @@
   "description": "在 DeepSeek Harness 中使用 Deep肥鱼微信智能体控制台",
   "license": "PolyForm-Noncommercial-1.0.0",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://gitee.com/PiggyWu981/deepfeiyu.git",
+    "directory": "dsh-plugin"
+  },
+  "homepage": "https://gitee.com/PiggyWu981/deepfeiyu/blob/main/dsh-plugin/README.md",
+  "bugs": {
+    "url": "https://gitee.com/PiggyWu981/deepfeiyu/issues"
+  },
   "exports": {
     ".": "./index.js",
     "./client": "./client.js",
@@ -17,6 +26,7 @@
     "cordis.patch.yml",
     "locale/*.json",
     "icon.svg",
+    "LICENSE",
     "README.md"
   ],
   "dsh": {

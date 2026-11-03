@@ -1,5 +1,6 @@
 // 控制台进程监督：auto 模式自动拉起 .venv Python，attach 模式只探测；插件卸载时终止自己拉起的进程。
 import { access } from 'node:fs/promises'
+import { join } from 'node:path'
 
 const POLL_RUNNING_MS = 5000
 const POLL_IDLE_MS = 15000
@@ -70,9 +71,19 @@ export function createSupervisor({ ctx, config, state, api }) {
       return state
     }
     if (handle) return state
+    // registry 安装时包在 profile 的 node_modules 里，上一级不是仓库根：
+    // 先确认 projectDir 真是仓库根再谈解释器，否则「先运行 run.bat」会把人指到错误目录。
+    if (!(await fileExists(join(config.projectDir, 'app', 'main.py')))) {
+      state.phase = 'error'
+      state.lastError = `projectDir 不是 Deep肥鱼仓库根（${config.projectDir}）：`
+        + '按包名安装时包位于 profile 的 node_modules，上一级不是仓库根，'
+        + '请在插件配置的 projectDir 里填写 Deep肥鱼仓库根目录。'
+      schedule(POLL_IDLE_MS)
+      return state
+    }
     if (!(await fileExists(config.pythonPath))) {
       state.phase = 'error'
-      state.lastError = `未找到 Python：${config.pythonPath}。请先在项目目录运行 run.bat 完成首次安装。`
+      state.lastError = `未找到 Python：${config.pythonPath}。请先在仓库根运行 run.bat 完成首次安装。`
       schedule(POLL_IDLE_MS)
       return state
     }

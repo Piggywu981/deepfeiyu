@@ -33,7 +33,7 @@
 2. 在**仓库根**运行一次 `run.bat`（非 Windows：等价的 `python -m venv .venv` + `pip install -r requirements.txt`），确认 `.venv` 可用。插件不会替你下载 Python 依赖；`.venv` 缺失时面板给出「先运行 run.bat」的可读错误。
 3. 本插件在 DSH `0.2.1-rc.5` 上实机验证；其他版本未验证（`package.json` 未声明 `engines.dsh`，DSH 不会拦，但兼容性以实测为准）。
 
-### 三种安装方式
+### 三种本地安装方式
 
 | 场景 | 步骤 | 注意 |
 |---|---|---|
@@ -41,7 +41,13 @@
 | **B. 只拷插件目录** | ① 把 `dsh-plugin/` 拷到任意位置 ② 安装该目录 ③ 在插件配置里写 `projectDir: <仓库根>` | 不写 `projectDir` 时插件会去错误位置找 `.venv`，面板报「找不到 Python」 |
 | **C. 让智能体装** | 让 DSH 里的智能体调用 `plugin_manager`：`action=install_bundle`，`target=<绝对路径>/dsh-plugin` | 与 A 等价；以返回的 `application` 为 `applied` 为准 |
 
-`plugin_manager install_bundle` 也接受 registry 名称、git 地址与 tarball，但**本插件尚未发布到 npm**（包名 `deepfeiyu-dsh` 只用于本地/未来发布），所以当前只能按上面三种本地路径方式安装。
+### 按包名安装（npm）
+
+`plugin_manager install_bundle` 的 `target` 也可以填公开包名 **`deepfeiyu-dsh`**（或 git 地址、tarball），由 DSH 从 npm registry 解析最新版。
+
+- **装完必须配 `projectDir`**：registry 安装会把包装进 profile 的 `node_modules/deepfeiyu-dsh`，上一级是 `node_modules` 而不是仓库根；`projectDir` 不指对仓库根，面板会直接报「projectDir 不是 Deep肥鱼仓库根」并给出配置指引（不会误导你去错误目录跑 `run.bat`）。
+- 前置不变：先克隆仓库、在仓库根跑一次 `run.bat`；插件只负责拉起控制台，不替你下载 Python 依赖。
+- 先到本地（A/B/C）跑通再考虑按包名装：registry 安装多一个 `projectDir` 配置步骤，适合已经熟悉插件配置的用户。
 
 ### 安装之后
 
@@ -65,7 +71,7 @@
 
 | 字段 | 默认 | 说明 |
 |---|---|---|
-| `projectDir` | 插件目录的上一级 | Deep肥鱼仓库根；用于定位 `.venv`、`data/config.json` |
+| `projectDir` | 插件目录的上一级 | Deep肥鱼仓库根；用于定位 `.venv`、`data/config.json`。**按包名（npm）安装时上一级是 `node_modules`，必须显式填写仓库根**，否则面板报「projectDir 不是 Deep肥鱼仓库根」 |
 | `pythonPath` | `<projectDir>/.venv/Scripts/python.exe`（非 Windows 为 `.venv/bin/python`） | 控制台解释器；不存在时面板/工具给出可读错误 |
 | `mode` | `auto` | `auto` 自动拉起并监管；`attach` 只探测已运行实例，不拉起 |
 | `autostart` | `true` | 仅 `auto`：插件激活时若控制台未运行则拉起 |

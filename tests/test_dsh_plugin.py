@@ -312,6 +312,43 @@ def test_update_tab_present():
     assert "tab === 'update' && !updateFetched.current" in source
 
 
+def test_supervisor_guards_project_dir():
+    """registry 安装时包在 profile 的 node_modules 里，上一级不是仓库根。
+
+    拉起控制台前必须校验 projectDir，并给出「配置 projectDir」的引导；
+    只有仓库根本身缺 .venv 才提示 run.bat，两种错误不能混用。
+    """
+    source = (PKG / "lib" / "supervisor.js").read_text(encoding="utf-8")
+    assert "join(config.projectDir, 'app', 'main.py')" in source, (
+        "supervisor 拉起前未校验 projectDir 是否为仓库根"
+    )
+    assert "仓库根" in source, "缺少 projectDir 配置引导文案"
+    # 误导性文案必须只在「确实是仓库根但缺解释器」时出现
+    assert "run.bat" in source
+
+
+def test_manifest_publish_metadata():
+    """发布到 registry 前必须补齐元数据与包内许可证文本（npm 只打包包目录内的文件）。"""
+    data = _manifest()
+    repo = data.get("repository")
+    assert isinstance(repo, dict) and "gitee.com" in str(repo.get("url", "")), "缺 repository"
+    assert isinstance(data.get("homepage"), str) and data["homepage"], "缺 homepage"
+    assert isinstance(data.get("bugs"), dict) and data["bugs"].get("url"), "缺 bugs"
+    assert "LICENSE" in data["files"], "files 必须包含 LICENSE，否则发布包无许可证文本"
+    assert (PKG / "LICENSE").is_file(), "dsh-plugin/LICENSE 缺失"
+    # 有意不声明 engines.dsh：只在 0.2.1-rc.5 实测，声明会拦住其他版本安装（README 已说明）
+    assert "dsh" not in data.get("engines", {}), "不要声明 engines.dsh"
+
+
+def test_readme_documents_registry_install():
+    """README 必须说明按包名安装与由此必需的 projectDir，且不能再留「尚未发布」表述。"""
+    text = (PKG / "README.md").read_text(encoding="utf-8")
+    assert "deepfeiyu-dsh" in text
+    assert "npm" in text
+    assert "node_modules" in text, "registry 安装后包不在仓库旁边，必须解释原因"
+    assert "尚未发布到 npm" not in text, "发行文档定稿前必须移除「尚未发布」表述"
+
+
 def test_js_syntax():
     node = shutil.which("node")
     if not node:
