@@ -6,6 +6,16 @@
 
 ## [未发布]
 
+### 2026-11-03 · DSH 插件发行准备：projectDir 校验、包元数据与安装文档
+
+- `dsh-plugin/lib/supervisor.js` 拉起控制台前先校验 `projectDir` 是否真是仓库根（查 `app/main.py`）：按包名安装时包位于 profile 的 `node_modules`，上一级不是仓库根，此前会直接报「未找到 Python…请先运行 run.bat」把人指到错误目录；现在改为先报「projectDir 不是 Deep肥鱼仓库根」并给出配置指引，只有确实缺 `.venv` 才提示 `run.bat`。
+- `dsh-plugin/package.json` 补齐发布元数据：`repository`（gitee + `directory: dsh-plugin`）、`homepage`、`bugs`；`files` 增加 `LICENSE`。`dsh-plugin/LICENSE` 为仓库根许可文本的逐字节复制（SHA256 一致），npm 只打包包目录内的文件，缺它发布包就没有许可证文本。
+- 有意**不声明** `engines.dsh`：只在 DSH `0.2.1-rc.5` 实机验证过，声明具体版本会拦住其他版本的安装，兼容性以实测为准（`dsh-plugin/README.md` 前置一节已写明）。
+- 安装文档改为「三种本地安装方式 + 按包名安装（npm）」：写明按包名装必须配 `projectDir` 及不配时的报错文案；`README.md` 7.5、`docs/使用说明.md` 第 16 节同步，移除「尚未发布到 npm」表述。
+- 浏览器人工验收回填：P1 设置页四项标签（模型与人格 / 自动回复 / 依赖与融合 / 更新与边界）的安装、切档、保存、掩码与控制台停启交互已由用户在浏览器完成人工验收（2026-11-03）。
+- 新增 `tests/test_dsh_plugin.py` 三个静态断言：supervisor 的仓库根校验与两种错误文案分离、manifest 发布元数据与包内 LICENSE、README 的按包名安装说明。
+- 验证状态：全量 `pytest` 为 **1569 passed / 1 skipped**（112s，0 failed；较上一条多的 3 个即本次新增断言），`node --check` 对 `index.js` / `client.js` / `lib/*.js` 全过，`python tools/release_snapshot.py --scan-tracked .` 扫描通过、`git diff --check` 干净；`dsh-plugin/LICENSE` 与仓库根 `LICENSE` SHA256 一致。**registry 安装撞 `node_modules` 的报错路径未做实机复现**（需先发布到 npm 或用本地路径模拟），属静态断言覆盖。
+
 ### 2026-11-03 · 微信 4.x 多开时图片解密全部失败（消息图 404）
 
 - 修复 `weixin4` 通道收图全部读不出来（日志反复「未在微信进程内存中找到图片 AES 密钥」，`GET /api/chats/{uid}/messages/{id}/image` 一律 404）：上游 `WeChatDB.extract_master_key()` 按 `_find_weixin_pids()` 的顺序取**第一个**能读出 cfg 的 `Weixin.exe`。本机两个账号同时登录（10 个 `Weixin.exe`）时先命中的是另一个账号 → `db.cfg_dword` 属于账号 A、`db.wxid` 属于账号 B。图片 AES 密钥 = `md5(str(cfgDword) + wxid)[:16]`，两者不同源永远验不过 → 每张图都退进 120 秒内存扫描并失败，朋友圈缓存图同样解不开（`moment.py` 解密缓存失败）。
@@ -58,7 +68,7 @@
 - 更新与边界标签：首次打开自动检查一次后仅手动（不每 4s 打 Gitee）、仓库入口走宿主侧栏浏览器、使用边界静态文案与协议入口。
 - 密钥契约不变：API Key 只回显掩码与占位符、空值不覆盖；掩码串原样回传由控制台 `_unmask_secrets` 还原——新增 `tests/test_dsh_settings_contract.py` 把这三条与端点登记固化成测试。
 - `README.md`、`dsh-plugin/README.md`、`docs/使用说明.md` 同步。
-- 验证状态：`tests/test_dsh_settings_contract.py` 4 passed、`tests/test_dsh_plugin.py` 31 passed；全量 `pytest` 为 1496 passed / 6 failed / 0 skipped，6 个失败均为基线已知环境失败（缺 `vendor/dsh-feiyu-pet`、`vendor/dsh-whale-widget` 子模块），0 个新增失败；`node --check` 全过；假 ctx 冒烟 7 项断言全过。**真实安装/切档/保存未在浏览器里人工点击验收**。
+- 验证状态：`tests/test_dsh_settings_contract.py` 4 passed、`tests/test_dsh_plugin.py` 31 passed；全量 `pytest` 为 1496 passed / 6 failed / 0 skipped，6 个失败均为基线已知环境失败（缺 `vendor/dsh-feiyu-pet`、`vendor/dsh-whale-widget` 子模块），0 个新增失败；`node --check` 全过；假 ctx 冒烟 7 项断言全过。真实安装/切档/保存已于 2026-11-03 由用户在浏览器完成人工验收（四标签切换、切档落回、窄补丁保存与掩码、控制台停启恢复均通过）。
 
 ### 2026-11-02 · 桌宠与心情双端融合
 
