@@ -361,6 +361,7 @@ def wx4_db_module() -> Any:
     if mod is None:
         return None
     _patch_get_self_info(mod)
+    _patch_cfg_dword(mod)
     _wx4_db_mod = mod
     return mod
 
@@ -393,6 +394,52 @@ def _patch_get_self_info(mod: Any) -> None:
 
     cls.get_self_info = get_self_info
     cls._wx4_patched_ssi = True
+
+
+def _patch_cfg_dword(mod: Any) -> None:
+    """修复多账号同时登录时 cfgDword 取到**别的账号**的缺陷。
+
+    ``WeChatDB.extract_master_key()`` 按 `_find_weixin_pids()` 的顺序取第一个
+    能读出 cfg 的 Weixin.exe。多开（本机实测两个账号同时在线，10 个 Weixin.exe）
+    时先命中的往往是另一个账号的进程，于是 `self.cfg_dword` 是账号 A 的，
+    `self.wxid` 却是账号 B 的。图片 AES 密钥 = md5(str(cfgDword) + wxid)[:16]，
+    两者不同源就永远验不过：每张图都掉进 120 秒内存扫描、每张图都 404。
+    （实测同一张 V2 图片：A 的 dword + B 的 wxid → 解不出 JPEG；
+    B 自己的 dword + B 的 wxid → 一次命中。）
+
+    改成优先取 cfg 里 wxid 与本账号一致的那个进程，一个都对不上才退回旧行为，
+    单账号/老版本完全不受影响。cfg 里的 wxid 与本账号对不上时，连主密钥也是
+    另一个账号的，这里一并纠正。
+    """
+    cls = getattr(mod, "WeChatDB", None)
+    extract_one = getattr(mod, "extract_master_key_from_cfg", None)
+    if cls is None or extract_one is None:
+        return
+    if getattr(cls, "_wx4_patched_cfgdword", False):
+        return
+
+    def extract_master_key(self) -> Any:
+        wanted = str(getattr(self, "wxid", "") or "")
+        fallback = None
+        try:
+            pids = self._find_weixin_pids()
+        except Exception:
+            pids = []
+        for pid in pids:
+            try:
+                got = extract_one(pid)
+            except Exception:
+                continue
+            if not got:
+                continue
+            if wanted and got[2] == wanted:
+                return got
+            if fallback is None:
+                fallback = got
+        return fallback
+
+    cls.extract_master_key = extract_master_key
+    cls._wx4_patched_cfgdword = True
 
 
 # 一次 wxgf 转码最多解这么多帧：静图只有 1~2 帧，动画表情也就几帧，

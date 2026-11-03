@@ -6,6 +6,14 @@
 
 ## [未发布]
 
+### 2026-11-03 · 微信 4.x 多开时图片解密全部失败（消息图 404）
+
+- 修复 `weixin4` 通道收图全部读不出来（日志反复「未在微信进程内存中找到图片 AES 密钥」，`GET /api/chats/{uid}/messages/{id}/image` 一律 404）：上游 `WeChatDB.extract_master_key()` 按 `_find_weixin_pids()` 的顺序取**第一个**能读出 cfg 的 `Weixin.exe`。本机两个账号同时登录（10 个 `Weixin.exe`）时先命中的是另一个账号 → `db.cfg_dword` 属于账号 A、`db.wxid` 属于账号 B。图片 AES 密钥 = `md5(str(cfgDword) + wxid)[:16]`，两者不同源永远验不过 → 每张图都退进 120 秒内存扫描并失败，朋友圈缓存图同样解不开（`moment.py` 解密缓存失败）。
+- `app/wechat/diagnose.py` 新增 `_patch_cfg_dword`，沿用 `_patch_get_self_info` / `_patch_wxgf_to_jpg` 的运行时补丁路子，在 `wx4_db_module()` 加载后生效：取 cfg 时优先选 cfg 里 wxid 与本账号一致的那个进程，一个都对不上才退回旧行为——单账号、老版本、本账号未登录时行为不变。
+- 新增 `tests/test_wx4_cfg_dword.py`（11 项：多账号取对、旧行为负控、账号无进程时兜底、读失败的进程跳过、补丁幂等、缺 `WeChatDB` 不抛、真实 `wx4_db_module()` 带补丁）。
+- 验证状态：本机微信 4.1.15.56、两个账号同时在线。同一张 V2 图片：A 的 dword + B 的 wxid 解不出 JPEG，B 自己的 dword + B 的 wxid 一次命中；补丁后 `detect_image_key()` **0.37s** 返回有效密钥（修复前每次 120s 扫描后失败），日志里 404 的三张图片（local_id 2851 / 2859 / 2844）全部解出真实 JPEG（`FF D8 FF E0 ... JFIF`）。`tests/test_wx4_cfg_dword.py` 11 passed；`pytest -q` 全量 **1566 passed / 1 skipped**，无回归。
+- 副作用说明：为跑全量测试，本机 `.venv` 按 `requirements-dev.txt` 安装了 `pytest` / `pytest-subtests`（此前缺失），未改动 `requirements*.txt`。
+
 ### 2026-11-01 · DSH 插件（DeepSeek Harness）
 
 - 新增 `dsh-plugin/`（无构建 Cordis bundle）：Harness 侧栏「Deep肥鱼」原生面板（状态 / 账号 / 会话 / 消息 / 发送 / 今日统计 / 控制台启停 / 打开完整控制台）、8 个 `deepfeiyu_*` Agent 工具、控制台进程监管（`mode=auto` 自动拉起或 `attach` 只附着）与发送审批；面板数据经同源、复用 DSH 连接鉴权的插件路由读取。
