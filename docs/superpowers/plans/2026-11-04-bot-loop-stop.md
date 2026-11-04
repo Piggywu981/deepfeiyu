@@ -39,7 +39,7 @@
 - 修改：`app/config.py`（`DEFAULTS["auto"]`，`"prefix": "",` 行之后）
 - 测试：`tests/test_botloop.py`
 
-- [ ] **步骤 1：编写失败的测试**
+- [x] **步骤 1：编写失败的测试**
 
 创建 `tests/test_botloop.py`，写入以下内容（识别 + 状态机 + 配置默认值，纯单元，不需要 manager）：
 
@@ -218,12 +218,12 @@ def test_config_defaults_include_bot_loop_keys():
     assert auto["bot_chat_idle_stop_min"] == 15
 ```
 
-- [ ] **步骤 2：运行测试验证失败**
+- [x] **步骤 2：运行测试验证失败**
 
 运行：`.venv\Scripts\python.exe -m pytest tests/test_botloop.py -q`
 预期：FAIL，`ModuleNotFoundError: No module named 'app.botloop'`（配置默认值断言也会失败）
 
-- [ ] **步骤 3：编写实现——config 默认键**
+- [x] **步骤 3：编写实现——config 默认键**
 
 `app/config.py`，在 `auto` 段的 `"prefix": "",`（约 194 行）之后插入：
 
@@ -235,7 +235,7 @@ def test_config_defaults_include_bot_loop_keys():
         "bot_chat_idle_stop_min": 15,
 ```
 
-- [ ] **步骤 4：编写实现——`app/botloop.py`**
+- [x] **步骤 4：编写实现——`app/botloop.py`**
 
 创建 `app/botloop.py`：
 
@@ -386,12 +386,12 @@ def count_burst(
     return max_rounds > 0 and st["rounds"] == max_rounds
 ```
 
-- [ ] **步骤 5：运行测试验证通过**
+- [x] **步骤 5：运行测试验证通过**
 
 运行：`.venv\Scripts\python.exe -m pytest tests/test_botloop.py -q`
 预期：PASS（14 passed）
 
-- [ ] **步骤 6：Commit**
+- [x] **步骤 6：Commit**
 
 ```powershell
 git add app/botloop.py app/config.py tests/test_botloop.py
@@ -406,7 +406,7 @@ git commit -m "feat: 机器人同行识别与互聊状态机核心（botloop）"
 - 修改：`app/rules.py`（import 行 9；`check()` 的 pause 检查之后、`ident` 黑白名单之前）
 - 测试：`tests/test_botloop.py`（追加）
 
-- [ ] **步骤 1：编写失败的测试**
+- [x] **步骤 1：编写失败的测试**
 
 在 `tests/test_botloop.py` 末尾追加（同时把 `from app import botloop, config, db` 扩成 `from app import botloop, config, db, rules`）：
 
@@ -533,12 +533,12 @@ def test_rules_private_peer_message_ungated(temp_db):
     assert db.kv_get("botloop:acc_a:123@chatroom") is None
 ```
 
-- [ ] **步骤 2：运行测试验证失败**
+- [x] **步骤 2：运行测试验证失败**
 
 运行：`.venv\Scripts\python.exe -m pytest tests/test_botloop.py -q`
 预期：新增用例 FAIL——`rules.check` 尚无闸门，`test_rules_gate_blocks_peer_at_round_limit` 得到 `(True, "允许回复")`
 
-- [ ] **步骤 3：编写实现**
+- [x] **步骤 3：编写实现**
 
 `app/rules.py` 两处：
 
@@ -558,12 +558,12 @@ from . import botloop, db
             return False, why
 ```
 
-- [ ] **步骤 4：运行测试验证通过**
+- [x] **步骤 4：运行测试验证通过**
 
 运行：`.venv\Scripts\python.exe -m pytest tests/test_botloop.py -q`
 预期：PASS（26 passed）
 
-- [ ] **步骤 5：Commit**
+- [x] **步骤 5：Commit**
 
 ```powershell
 git add app/rules.py tests/test_botloop.py
@@ -578,7 +578,7 @@ git commit -m "feat: rules.check 接入机器人同行互聊闸门"
 - 修改：`app/wechat/manager.py`（5 处，见步骤 3）
 - 测试：`tests/test_botloop.py`（追加）
 
-- [ ] **步骤 1：编写失败的测试**
+- [x] **步骤 1：编写失败的测试**
 
 在 `tests/test_botloop.py` 末尾追加（imports 扩成 `from app.wechat.manager import AccountSession`，`asyncio` 已在文件头）：
 
@@ -742,12 +742,12 @@ def test_build_prompt_wrap_up_block(temp_db):
     assert not any("本轮收尾" in m["content"] for m in without)
 ```
 
-- [ ] **步骤 2：运行测试验证失败**
+- [x] **步骤 2：运行测试验证失败**
 
 运行：`.venv\Scripts\python.exe -m pytest tests/test_botloop.py -q`
 预期：新增用例 FAIL——`TypeError: ... unexpected keyword argument 'wrap_up'`（`_build_prompt` 尚无该参数）；重置类用例因 `botloop.observe` 未被调用而 FAIL
 
-- [ ] **步骤 3：编写实现（`app/wechat/manager.py` 五处）**
+- [x] **步骤 3：编写实现（`app/wechat/manager.py` 五处）**
 
 1）import（第 14 行）：
 
@@ -806,17 +806,17 @@ from .. import botloop, config, db, rules, usage as usage_mod
             )
 ```
 
-- [ ] **步骤 4：运行测试验证通过**
+- [x] **步骤 4：运行测试验证通过**
 
 运行：`.venv\Scripts\python.exe -m pytest tests/test_botloop.py -q`
 预期：PASS（33 passed）
 
-- [ ] **步骤 5：跑既有相关回归**
+- [x] **步骤 5：跑既有相关回归**
 
 运行：`.venv\Scripts\python.exe -m pytest tests/test_self_message.py tests/test_mood_hooks.py tests/test_cross_chat.py tests/test_pat.py tests/test_group_silence.py -q`
 预期：全 PASS（manager 改动不破坏既有链路；若有失败，先修复再提交）
 
-- [ ] **步骤 6：Commit**
+- [x] **步骤 6：Commit**
 
 ```powershell
 git add app/wechat/manager.py tests/test_botloop.py
@@ -832,7 +832,7 @@ git commit -m "feat: 互聊状态钩子接入 manager（真人重置/生成前�
 - 修改：`app/static/app.js`（`fillSettings` 约 2234 行、`saveSettings` 的 `auto` 段约 2306 行）
 - 测试：`tests/test_botloop.py`（追加静态断言）
 
-- [ ] **步骤 1：编写失败的测试**
+- [x] **步骤 1：编写失败的测试**
 
 `tests/test_botloop.py` 末尾追加：
 
@@ -850,12 +850,12 @@ def test_console_form_has_bot_loop_fields():
         assert key in js, f"app.js 保存缺少配置键 {key}"
 ```
 
-- [ ] **步骤 2：运行测试验证失败**
+- [x] **步骤 2：运行测试验证失败**
 
 运行：`.venv\Scripts\python.exe -m pytest tests/test_botloop.py::test_console_form_has_bot_loop_fields -q`
 预期：FAIL，`AssertionError: index.html 缺少字段 fBotPeers`
 
-- [ ] **步骤 3：编写实现——`index.html`**
+- [x] **步骤 3：编写实现——`index.html`**
 
 在 `<label class="field"><span>回复前缀（可空）</span><input id="fPrefix" …></label>` 整块之后插入：
 
@@ -877,7 +877,7 @@ def test_console_form_has_bot_loop_fields():
             </label>
 ```
 
-- [ ] **步骤 4：编写实现——`app.js`**
+- [x] **步骤 4：编写实现——`app.js`**
 
 `fillSettings` 中 `$("#fPrefix").value = s.auto.prefix || "";` 之后插入：
 
@@ -895,12 +895,12 @@ def test_console_form_has_bot_loop_fields():
       bot_chat_idle_stop_min: parseInt($("#fBotIdle").value) || 0,
 ```
 
-- [ ] **步骤 5：运行测试验证通过**
+- [x] **步骤 5：运行测试验证通过**
 
 运行：`.venv\Scripts\python.exe -m pytest tests/test_botloop.py -q`
 预期：PASS（34 passed）
 
-- [ ] **步骤 6：Commit**
+- [x] **步骤 6：Commit**
 
 ```powershell
 git add app/static/index.html app/static/app.js tests/test_botloop.py
@@ -915,7 +915,7 @@ git commit -m "feat: 策略页新增机器人同行名单与互聊停止字段"
 - 修改：`docs/使用说明.md`（3 处）
 - 修改：`CHANGELOG.md`（未发布段）
 
-- [ ] **步骤 1：使用说明——3.1 拦截清单**
+- [x] **步骤 1：使用说明——3.1 拦截清单**
 
 `docs/使用说明.md` 3.1 节「以下任一情况会静默：」列表里，`触发同会话最短间隔、每日上限或发送节流；` 一行之后插入：
 
@@ -923,7 +923,7 @@ git commit -m "feat: 策略页新增机器人同行名单与互聊停止字段"
   - 群里对方是登记的机器人同行，且互聊已达轮数上限 / 长时间无真人参与；
 ```
 
-- [ ] **步骤 2：使用说明——新增 3.4 节**
+- [x] **步骤 2：使用说明——新增 3.4 节**
 
 在 `### 3.3 发送节奏` 小节内容之后、下一个 `---` 之前插入：
 
@@ -940,7 +940,7 @@ git commit -m "feat: 策略页新增机器人同行名单与互聊停止字段"
 限制：wcferry 通道的群消息可能解析不出 wxid，此时机制不生效；群里**没登记**的其他机器人按真人处理——每个机器人都要把「其他所有机器人」登记进自己的名单。
 ```
 
-- [ ] **步骤 3：使用说明——设置页字段表**
+- [x] **步骤 3：使用说明——设置页字段表**
 
 `docs/使用说明.md` 中 `**自动回复策略**：总开关、群聊需 @、拍一拍、黑白名单、工作时段、间隔、每日上限、接管暂停、前缀、字数上限、跨对话沟通。` 一行改为：
 
@@ -948,7 +948,7 @@ git commit -m "feat: 策略页新增机器人同行名单与互聊停止字段"
 - **自动回复策略**：总开关、群聊需 @、拍一拍、黑白名单、工作时段、间隔、每日上限、接管暂停、前缀、机器人同行名单与互聊停止（轮数上限 / 无真人暂停）、字数上限、跨对话沟通。
 ```
 
-- [ ] **步骤 4：CHANGELOG 条目**
+- [x] **步骤 4：CHANGELOG 条目**
 
 `CHANGELOG.md` 的 `## [未发布]` 之后插入：
 
@@ -961,12 +961,12 @@ git commit -m "feat: 策略页新增机器人同行名单与互聊停止字段"
 - 已知限制（文档已写明）：wcferry 群消息解析不出 wxid 时机制退化为不生效；未登记的机器人按真人处理；空 wxid fail-open 按真人（最坏维持现状）。
 - 验证状态：（执行本任务时如实填写：`tests/test_botloop.py` 通过数、全量 `pytest -q` 结果与耗时、`release_snapshot` 扫描与 `git diff --check` 结果；不得编造）```
 
-- [ ] **步骤 5：文档回归测试**
+- [x] **步骤 5：文档回归测试**
 
 运行：`.venv\Scripts\python.exe -m pytest tests/test_usage_doc.py tests/test_readme_claims.py tests/test_eula.py -q`
 预期：全 PASS（改了使用说明必须过文档测试）
 
-- [ ] **步骤 6：脱敏扫描**
+- [x] **步骤 6：脱敏扫描**
 
 ```powershell
 python tools/release_snapshot.py --scan-tracked .
@@ -975,12 +975,12 @@ git diff --check
 
 预期：扫描通过、无空白错误；人工复查 `git diff` 无真实 wxid/聊天记录/密钥（本计划全部用 `wxid_peer_bot` 等合成值）
 
-- [ ] **步骤 7：全量测试并回填 CHANGELOG 验证状态**
+- [x] **步骤 7：全量测试并回填 CHANGELOG 验证状态**
 
 运行：`.venv\Scripts\python.exe -m pytest -q`
 预期：全 PASS，或如实列明环境性失败与原因。把**真实**数字（如 `32 passed`、全量 `N passed / M skipped`、耗时）填进步骤 4 的「验证状态」占位说明，删掉括号里的执行指引。
 
-- [ ] **步骤 8：Commit**
+- [x] **步骤 8：Commit**
 
 ```powershell
 git add docs/使用说明.md CHANGELOG.md
@@ -991,9 +991,9 @@ git commit -m "docs: 互聊停止机制使用说明与更新日志"
 
 ## 完成核对（对应规格验收标准）
 
-- [ ] 登记 `bot_peers` 后 ≤N 条内正常互聊、第 N 条收尾、之后拒绝且原因可读（任务 2/3 测试）
-- [ ] 满 X 分钟停止；真人消息（含手动 `is_self`）重置并恢复（任务 1/2/3 测试）
-- [ ] 时段/接管/日上限/`group_need_at`/黑名单对同行照常（任务 2 测试；日上限沿用既有 `daily_limit` 用例口径）
-- [ ] 未配置名单、空 wxid、私聊：行为与现状一致（任务 1/2 测试）
-- [ ] 全量测试通过或如实列明环境性失败；文档与 CHANGELOG 同步；无真实 wxid/聊天记录入库
-- [ ] 回滚方式：revert 提交即可；配置键留着无害（空名单 = 关闭），kv 旧版本自动忽略，无数据库迁移
+- [x] 登记 `bot_peers` 后 ≤N 条内正常互聊、第 N 条收尾、之后拒绝且原因可读（任务 2/3 测试）
+- [x] 满 X 分钟停止；真人消息（含手动 `is_self`）重置并恢复（任务 1/2/3 测试）
+- [x] 时段/接管/日上限/`group_need_at`/黑名单对同行照常（任务 2 测试；日上限沿用既有 `daily_limit` 用例口径）
+- [x] 未配置名单、空 wxid、私聊：行为与现状一致（任务 1/2 测试）
+- [x] 全量测试通过或如实列明环境性失败；文档与 CHANGELOG 同步；无真实 wxid/聊天记录入库
+- [x] 回滚方式：revert 提交即可；配置键留着无害（空名单 = 关闭），kv 旧版本自动忽略，无数据库迁移

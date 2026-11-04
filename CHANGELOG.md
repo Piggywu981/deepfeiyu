@@ -6,6 +6,14 @@
 
 ## [未发布]
 
+### 2026-11-04 · 群内机器人同行互聊停止（轮数上限 / 无真人参与暂停）
+
+- 新增「机器人同行互聊停止」：两个以上机器人号同群时不再无限互聊。`auto` 段新增 `bot_peers`（对方机器人 wxid 名单，留空 = 机制关闭）、`bot_chat_max_rounds`（默认 8，到第 N 条自然收尾）、`bot_chat_idle_stop_min`（默认 15 分钟）；新模块 `app/botloop.py` 按群聊维护 `rounds`/`last_human_ts`（kv `botloop:{uid}` 持久化，无数据库迁移）。
+- 判定与钩子：`rules.check` 在「人工接管」之后插入只读闸门，拒绝原因照常进控制台「为什么不回」；`manager.handle_message` 对真人消息（含本人手机手动发言）重置计数与计时（让位 + 重新激活），`_auto_reply_run` 在拿到会话锁后计数并把收尾标记传给 `_build_prompt`（收尾轮提示词追加「自然收尾道别」指令）。工作时段、人工接管、日上限、`group_need_at`、黑名单对同行照常生效。
+- 控制台「设置 → 自动回复策略」新增三字段：机器人同行名单、互聊轮数上限、无真人参与暂停；`docs/使用说明.md` 新增 3.4 节并同步拦截清单。
+- 已知限制（文档已写明）：wcferry 群消息解析不出 wxid 时机制退化为不生效；未登记的机器人按真人处理；空 wxid fail-open 按真人（最坏维持现状）。
+- 验证状态：`tests/test_botloop.py` **34 passed**；全量 `pytest -q` **1603 passed / 1 skipped / 0 failed**（107.37s，较上一条基线 1569 多出的 34 个即本次新增）；`node --check app/static/app.js` 通过；`python tools/release_snapshot.py --scan-tracked .` 扫描通过、`git diff --check` 干净。真实微信双号互聊场景未实机复现（本机无可多开验证的双通道），行为由单元与 manager 链路测试覆盖。
+
 ### 2026-11-03 · DSH 插件发行准备：projectDir 校验、包元数据与安装文档
 
 - `dsh-plugin/lib/supervisor.js` 拉起控制台前先校验 `projectDir` 是否真是仓库根（查 `app/main.py`）：按包名安装时包位于 profile 的 `node_modules`，上一级不是仓库根，此前会直接报「未找到 Python…请先运行 run.bat」把人指到错误目录；现在改为先报「projectDir 不是 Deep肥鱼仓库根」并给出配置指引，只有确实缺 `.venv` 才提示 `run.bat`。
