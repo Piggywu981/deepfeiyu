@@ -2232,6 +2232,9 @@ function fillSettings(s) {
   $("#fDaily").value = s.auto.daily_limit ?? 300;
   $("#fTakeover").value = s.auto.takeover_pause_min ?? 10;
   $("#fPrefix").value = s.auto.prefix || "";
+  $("#fBotPeers").value = (s.auto.bot_peers || []).join("\n");
+  $("#fBotRounds").value = s.auto.bot_chat_max_rounds ?? 8;
+  $("#fBotIdle").value = s.auto.bot_chat_idle_stop_min ?? 15;
   $("#fReplyTimeout").value = s.auto.reply_timeout_sec ?? 60;
   $("#fTimeoutFallback").value = s.auto.timeout_fallback || "";
   $("#fSplitReply").checked = !!s.auto.split_reply;
@@ -2304,6 +2307,9 @@ async function saveSettings() {
       daily_limit: parseInt($("#fDaily").value) || 0,
       takeover_pause_min: parseInt($("#fTakeover").value) || 0,
       prefix: $("#fPrefix").value,
+      bot_peers: lines($("#fBotPeers").value),
+      bot_chat_max_rounds: parseInt($("#fBotRounds").value) || 0,
+      bot_chat_idle_stop_min: parseInt($("#fBotIdle").value) || 0,
       reply_timeout_sec: parseFloat($("#fReplyTimeout").value) || 0,
       timeout_fallback: $("#fTimeoutFallback").value.trim(),
       split_reply: $("#fSplitReply").checked,

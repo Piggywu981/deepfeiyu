@@ -1290,6 +1290,21 @@
               <input id="fPrefix" placeholder="例如：[AI]" />
             </label>
             <label class="field">
+              <span>机器人同行名单（每行一个 wxid，可空）</span>
+              <textarea id="fBotPeers" rows="2" placeholder="wxid_xxxxxxxx"></textarea>
+              <em>群里其他机器人号的 wxid；留空则不启用「互聊停止」，照常谁发都回</em>
+            </label>
+            <label class="field">
+              <span>互聊轮数上限（0 = 不限）</span>
+              <input id="fBotRounds" type="number" min="0" />
+              <em>本账号最多回机器人同行几条，到第 N 条自然收尾后不再接话</em>
+            </label>
+            <label class="field">
+              <span>无真人参与暂停（分钟，0 = 不限）</span>
+              <input id="fBotIdle" type="number" min="0" />
+              <em>纯机器人聊天超过此时长自动停；群里出现真人发言后重新计</em>
+            </label>
+            <label class="field">
               <span>回复超时（秒，0 = 不限制）</span>
               <input id="fReplyTimeout" type="number" min="0" />
               <em>到点还没回就先把已有内容 / 兜底话发出去</em>

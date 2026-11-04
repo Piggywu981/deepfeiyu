@@ -452,3 +452,16 @@ def test_build_prompt_wrap_up_block(temp_db):
     assert any("本轮收尾" in m["content"] for m in with_wrap)
     without = session._build_prompt(cfg, chat, [], msg)
     assert not any("本轮收尾" in m["content"] for m in without)
+
+
+# ------------------------------------------------------------------ 控制台表单
+
+def test_console_form_has_bot_loop_fields():
+    root = Path(__file__).resolve().parents[1]
+    html = (root / "app" / "static" / "index.html").read_text("utf-8")
+    js = (root / "app" / "static" / "app.js").read_text("utf-8")
+    for fid in ("fBotPeers", "fBotRounds", "fBotIdle"):
+        assert fid in html, f"index.html 缺少字段 {fid}"
+        assert fid in js, f"app.js 缺少字段 {fid}"
+    for key in ("bot_peers", "bot_chat_max_rounds", "bot_chat_idle_stop_min"):
+        assert key in js, f"app.js 保存缺少配置键 {key}"
