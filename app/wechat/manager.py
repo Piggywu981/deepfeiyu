@@ -11,7 +11,7 @@ from collections import deque
 from dataclasses import dataclass, replace
 from typing import Any, Callable
 
-from .. import config, db, rules, usage as usage_mod
+from .. import botloop, config, db, rules, usage as usage_mod
 from ..ai.agent import Agent
 from ..ai.llm import LLM
 from ..ai import chuanzi, memory, moe_wiki
@@ -622,6 +622,7 @@ class AccountSession:
 
         if msg.is_self:
             if not soft_echo:
+                botloop.observe(self.get_cfg(), uid, msg)  # 人工在手机上发的 = 真人
                 # 「人工接管暂停」按这条消息之前的状态算：刚设置的新暂停不该把本次串门判定挡掉
                 paused_before = bool((db.get_chat(uid) or {}).get("paused"))
                 self._handle_self_message(uid, msg)
@@ -630,6 +631,7 @@ class AccountSession:
 
         cfg = self.get_cfg()
         chat = db.get_chat(uid)
+        botloop.observe(cfg, uid, msg)  # 真人消息重置互聊状态（让位 + 重新激活）
         allowed, reason = rules.check(cfg, self.account, chat, msg)
         bus.publish(
             {
@@ -1406,8 +1408,10 @@ class AccountSession:
                         )
                     except Exception as exc:  # noqa: BLE001
                         log.warning("记忆检索失败 %s: %s", uid, exc)
+                wrap_up = botloop.count_burst(cfg, uid, burst)  # 同行触发才计数；正好到上限=收尾轮
                 messages = self._build_prompt(
-                    cfg, chat, history, msg, image_paths, habit=habit, memory_block=memory_block
+                    cfg, chat, history, msg, image_paths, habit=habit,
+                    memory_block=memory_block, wrap_up=wrap_up,
                 )
                 emoji_required = bool(cfg["ai"].get("emoji_with_reply", True))
                 # 秒回：主循环不给表情工具，正文一轮直接产出；表情改由正文流式产出时
@@ -1950,6 +1954,7 @@ class AccountSession:
         image_paths: list[str] | None = None,
         habit: dict[str, Any] | None = None,
         memory_block: str | None = None,
+        wrap_up: bool = False,
     ) -> list[dict[str, Any]]:
         from ..emoji import history_content
 
@@ -2133,6 +2138,12 @@ class AccountSession:
             system += (
                 "\n群聊消息开头是「昵称(wxid)」前缀：wxid 是区分同名群友的唯一标识，"
                 "认人时以 wxid 为准；回复里照常只称呼昵称，不要把 wxid 写出来。"
+            )
+        if wrap_up:
+            system += (
+                "\n【本轮收尾】你与群里其他自动回复账号的互聊已达轮数上限："
+                "这是本轮互聊的最后一条消息，自然收尾道别即可，别再挑起新话题；"
+                "有真人参与时正常回应真人。"
             )
         cross_cfg = cfg.get("cross") or {}
         cross_relay = bool(cross_cfg.get("enabled") and cross_cfg.get("relay"))

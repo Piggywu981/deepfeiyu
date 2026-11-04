@@ -609,7 +609,9 @@ class _FakeDriver:
         return True
 
 
-def _session(llm=None, **auto_cfg) -> AccountSession:
+def _session(llm=None, **auto_cfg):
+    from app.wechat.manager import AccountSession
+
     auto = {"enabled": True, "group_need_at": False, "min_interval_sec": 0,
             "daily_limit": 0, "history_context": 4, "split_reply": False,
             "takeover_pause_min": 0, **auto_cfg}
@@ -623,6 +625,7 @@ def _session(llm=None, **auto_cfg) -> AccountSession:
 def test_handle_message_human_resets_state(temp_db):
     session = _session(bot_peers=["wxid_peer_bot"])
     uid = db.upsert_chat("acc_a", "g1@chatroom", "产品群", True, "在吗")
+    db.set_chat_ai(uid, True)   # 新会话默认关 AI（default_ai_on=False），不改就到不了策略层
     db.kv_set(f"botloop:{uid}", {"rounds": 5, "last_human_ts": time.time() - 9999})
     msg = Message(chat_id="g1@chatroom", chat_name="产品群", sender_id="wxid_human",
                   sender_name="群友", content="大家好", is_group=True, msg_id="h1")
@@ -646,6 +649,7 @@ def test_handle_message_manual_self_resets_state(temp_db):
 def test_handle_message_peer_at_limit_schedules_nothing(temp_db):
     session = _session(bot_peers=["wxid_peer_bot"], bot_chat_max_rounds=2)
     uid = db.upsert_chat("acc_a", "g3@chatroom", "产品群", True)
+    db.set_chat_ai(uid, True)   # 必须开 AI：否则是「会话关了 AI」拦的，闸门用例就空过了
     db.kv_set(f"botloop:{uid}", {"rounds": 2, "last_human_ts": time.time()})
     msg = Message(chat_id="g3@chatroom", chat_name="产品群", sender_id="wxid_peer_bot",
                   sender_name="同行", content="接着聊", is_group=True, msg_id="p1")
@@ -660,6 +664,7 @@ def test_handle_message_peer_without_peers_config_schedules(temp_db):
     """
     session = _session(_FakeLLM())
     uid = db.upsert_chat("acc_a", "g4@chatroom", "产品群", True)
+    db.set_chat_ai(uid, True)   # 新会话默认关 AI，不开就到不了排队
     msg = Message(chat_id="g4@chatroom", chat_name="产品群", sender_id="wxid_peer_bot",
                   sender_name="同行", content="在吗", is_group=True, msg_id="p2")
     asyncio.run(session.handle_message(msg))

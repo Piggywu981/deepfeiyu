@@ -292,3 +292,163 @@ def test_rules_private_peer_message_ungated(temp_db):
     ok, _ = rules.check(cfg, {"id": "acc_a"}, chat, _msg(group=False))
     assert ok is True
     assert db.kv_get("botloop:acc_a:123@chatroom") is None
+
+
+# ------------------------------------------------------------------ manager 钩子
+
+class _NoLLM:
+    """configured=False：走到「未配置 Key」分支即返回，不进生成、不排队。"""
+    configured = False
+
+
+class _FakeLLM:
+    configured = True
+
+    async def stream(self, messages, tools=None, **kwargs):  # noqa: ARG002
+        yield {"type": "text", "text": "好呀"}
+        yield {"type": "finish", "usage": {"prompt_tokens": 1, "completion_tokens": 1}}
+
+
+class _FakeDriver:
+    _self_wxid = "wxid_self"  # 闸门要求身份明确，替身需与真实驱动一样已绑定
+
+    def __init__(self) -> None:
+        self.sent: list[tuple[str, str]] = []
+
+    def send_text(self, chat_id: str, text: str, **kwargs) -> bool:  # noqa: ARG002
+        self.sent.append((chat_id, text))
+        return True
+
+
+def _session(llm=None, **auto_cfg):
+    from app.wechat.manager import AccountSession
+
+    auto = {"enabled": True, "group_need_at": False, "min_interval_sec": 0,
+            "daily_limit": 0, "history_context": 4, "split_reply": False,
+            "takeover_pause_min": 0, **auto_cfg}
+    cfg = {"send": {"enabled": False},
+           "ai": {"emoji_auto_collect": False, "memory_enabled": False},
+           "auto": auto, "emoji": {}}
+    return AccountSession({"id": "acc_a", "name": "A", "nickname": "B", "persona": {}},
+                          lambda: cfg, llm or _NoLLM())
+
+
+def test_handle_message_human_resets_state(temp_db):
+    session = _session(bot_peers=["wxid_peer_bot"])
+    uid = db.upsert_chat("acc_a", "g1@chatroom", "产品群", True, "在吗")
+    db.set_chat_ai(uid, True)   # 新会话默认关 AI（default_ai_on=False），不改就到不了策略层
+    db.kv_set(f"botloop:{uid}", {"rounds": 5, "last_human_ts": time.time() - 9999})
+    msg = Message(chat_id="g1@chatroom", chat_name="产品群", sender_id="wxid_human",
+                  sender_name="群友", content="大家好", is_group=True, msg_id="h1")
+    asyncio.run(session.handle_message(msg))
+    st = db.kv_get(f"botloop:{uid}")
+    assert st["rounds"] == 0
+    assert st["last_human_ts"] > time.time() - 5
+
+
+def test_handle_message_manual_self_resets_state(temp_db):
+    """本人手机手动发言 = 真人；走 is_self 非回声分支同样重置。"""
+    session = _session(bot_peers=["wxid_peer_bot"])
+    uid = db.upsert_chat("acc_a", "g2@chatroom", "产品群", True)
+    db.kv_set(f"botloop:{uid}", {"rounds": 4, "last_human_ts": time.time() - 9999})
+    msg = Message(chat_id="g2@chatroom", chat_name="产品群", sender_id="wxid_self",
+                  content="我插一句", is_group=True, is_self=True, msg_id="s1")
+    asyncio.run(session.handle_message(msg))
+    assert db.kv_get(f"botloop:{uid}")["rounds"] == 0
+
+
+def test_handle_message_peer_at_limit_schedules_nothing(temp_db):
+    session = _session(bot_peers=["wxid_peer_bot"], bot_chat_max_rounds=2)
+    uid = db.upsert_chat("acc_a", "g3@chatroom", "产品群", True)
+    db.set_chat_ai(uid, True)   # 必须开 AI：否则是「会话关了 AI」拦的，闸门用例就空过了
+    db.kv_set(f"botloop:{uid}", {"rounds": 2, "last_human_ts": time.time()})
+    msg = Message(chat_id="g3@chatroom", chat_name="产品群", sender_id="wxid_peer_bot",
+                  sender_name="同行", content="接着聊", is_group=True, msg_id="p1")
+    asyncio.run(session.handle_message(msg))
+    assert session._pending == {}   # 闸门拦下，没有排队回复
+
+
+def test_handle_message_peer_without_peers_config_schedules(temp_db):
+    """未配置名单：同行消息与现状一样进入回复流程（此处断言进了聚拢窗口）。
+
+    必须用 configured=True 的 LLM：configured=False 会在排队前就走「未配置 Key」分支 return。
+    """
+    session = _session(_FakeLLM())
+    uid = db.upsert_chat("acc_a", "g4@chatroom", "产品群", True)
+    db.set_chat_ai(uid, True)   # 新会话默认关 AI，不开就到不了排队
+    msg = Message(chat_id="g4@chatroom", chat_name="产品群", sender_id="wxid_peer_bot",
+                  sender_name="同行", content="在吗", is_group=True, msg_id="p2")
+    asyncio.run(session.handle_message(msg))
+    assert uid in session._pending
+    pending = session._pending.pop(uid)
+    if pending.timer is not None:
+        pending.timer.cancel()
+
+
+def test_agent_echo_does_not_reset_state(temp_db):
+    """服务自己发出的消息回声在 handle_message 早期被吞掉，不构成真人事件。"""
+    session = _session(bot_peers=["wxid_peer_bot"])
+    uid = db.upsert_chat("acc_a", "g5@chatroom", "产品群", True)
+    db.kv_set(f"botloop:{uid}", {"rounds": 3, "last_human_ts": time.time() - 9999})
+    session._recent_outbound[(uid, "好呀")] = time.time()   # 出站留底：回声命中
+    echo = Message(chat_id="g5@chatroom", chat_name="产品群", content="好呀",
+                   is_self=True, msg_id="e1")
+    asyncio.run(session.handle_message(echo))
+    assert db.kv_get(f"botloop:{uid}")["rounds"] == 3
+
+
+def test_auto_reply_run_counts_peer_and_flags_wrap(temp_db, monkeypatch):
+    """同行触发的回复生成前计数；正好到上限那轮把收尾标记传给 _build_prompt。"""
+    from app import config as config_mod
+    from app.mood import service as mood_service
+    from app.wechat.manager import AccountSession
+
+    auto = {"enabled": True, "group_need_at": False, "history_context": 4,
+            "split_reply": False, "max_reply_chars": 300, "emoji_reply": False,
+            "bot_peers": ["wxid_peer_bot"], "bot_chat_max_rounds": 2,
+            "bot_chat_idle_stop_min": 15}
+    monkeypatch.setattr(config_mod, "load", lambda: {
+        "ai": {"memory_enabled": False, "vision_enabled": False, "emoji_with_reply": False},
+        "auto": auto, "send": {"enabled": False}, "emoji": {},
+    })
+    monkeypatch.setattr(config_mod, "persona_of", lambda acc: ("人设", "大肥鱼"))
+    monkeypatch.setattr(mood_service, "observe", lambda *a, **kw: "queued")
+    session = AccountSession({"id": "acc_a", "name": "号", "persona": {}},
+                             lambda: config_mod.load(), _FakeLLM())
+    session.driver = _FakeDriver()
+    uid = db.upsert_chat("acc_a", "c9@chatroom", "产品群", True, "在吗")
+
+    def peer_msg(mid: str, text: str) -> Message:
+        return Message(chat_id="c9@chatroom", chat_name="产品群", sender_id="wxid_peer_bot",
+                       sender_name="同行", content=text, is_group=True, msg_id=mid)
+
+    wraps: list[bool] = []
+    real_build = session._build_prompt
+
+    def spy(*args, **kwargs):
+        wraps.append(bool(kwargs.get("wrap_up")))
+        return real_build(*args, **kwargs)
+
+    session._build_prompt = spy
+
+    async def turns():
+        await session._auto_reply_run(uid, peer_msg("m1", "在吗"), [peer_msg("m1", "在吗")])
+        await session._auto_reply_run(uid, peer_msg("m2", "接着聊"), [peer_msg("m2", "接着聊")])
+
+    asyncio.run(turns())
+    assert db.kv_get(f"botloop:{uid}")["rounds"] == 2
+    assert wraps == [False, True]           # 第 2 轮（=上限）标收尾
+    assert session.driver.sent              # 两轮都真的发出去了
+
+
+def test_build_prompt_wrap_up_block(temp_db):
+    session = _session()
+    cfg = {"ai": {"memory_enabled": False, "emoji_with_reply": False},
+           "auto": {"group_need_at": False}, "send": {"enabled": False}}
+    chat = {"uid": "acc_a:g", "chat_id": "g@chatroom", "name": "产品群"}
+    msg = Message(chat_id="g@chatroom", chat_name="产品群", sender_id="wxid_peer_bot",
+                  sender_name="同行", content="在吗", is_group=True, msg_id="w1")
+    with_wrap = session._build_prompt(cfg, chat, [], msg, wrap_up=True)
+    assert any("本轮收尾" in m["content"] for m in with_wrap)
+    without = session._build_prompt(cfg, chat, [], msg)
+    assert not any("本轮收尾" in m["content"] for m in without)
