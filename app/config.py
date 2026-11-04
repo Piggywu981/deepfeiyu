@@ -192,6 +192,11 @@ DEFAULTS: dict[str, Any] = {
         "min_interval_sec": 3,
         "daily_limit": 300,
         "prefix": "",
+        # 机器人同行互聊停止（规格 docs/superpowers/specs/2026-11-04-bot-loop-stop-design.md）：
+        # bot_peers 登记群里其他机器人号的 wxid，留空 = 机制关闭；两个 0 = 对应条件不限
+        "bot_peers": [],
+        "bot_chat_max_rounds": 8,
+        "bot_chat_idle_stop_min": 15,
         "working_hours": {"enabled": False, "start": "09:00", "end": "22:00"},
         "takeover_pause_min": 10,
         "history_context": 12,

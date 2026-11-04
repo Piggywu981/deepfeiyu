@@ -286,21 +286,34 @@ def _key(chat_uid: str) -> str:
 
 
 def _load(chat_uid: str, now: float) -> dict[str, Any]:
-    """读每会话状态；缺失或结构坏掉按首见初始化（last_human_ts = now）。"""
+    """读每会话状态；缺失或结构坏掉按首见初始化（last_human_ts = now）并落盘。
+
+    读路径也落盘：规格 §5.2 要求「会话首见」即建立状态，纯机器人群从此时起计闲置；
+    字段级损坏同样修好后写回，避免坏时间戳每次读都被当成「刚发生」。
+    """
     data = db.kv_get(_key(chat_uid))
     if not isinstance(data, dict):
-        return {"rounds": 0, "last_human_ts": now}
+        st = {"rounds": 0, "last_human_ts": now}
+        _save(chat_uid, st)
+        return st
+    bad = False
     try:
         rounds = max(0, int(data.get("rounds") or 0))
     except (TypeError, ValueError):
         rounds = 0
+        bad = True
     try:
         ts = float(data.get("last_human_ts") or 0)
     except (TypeError, ValueError, OverflowError):
         ts = 0.0
+        bad = True
     if not math.isfinite(ts) or ts <= 0:
         ts = now
-    return {"rounds": rounds, "last_human_ts": ts}
+        bad = True
+    st = {"rounds": rounds, "last_human_ts": ts}
+    if bad:
+        _save(chat_uid, st)
+    return st
 
 
 def _save(chat_uid: str, st: dict[str, Any]) -> None:
@@ -338,7 +351,7 @@ def observe(cfg: dict[str, Any], chat_uid: str, msg: Message, now: float | None 
 def gate(cfg: dict[str, Any], chat_uid: str, now: float | None = None) -> tuple[bool, str]:
     """同行消息的发前闸门：轮数超限 / 长时间无真人参与。
 
-    只对已判定为同行的群消息调用（rules.check 内）；只读，不写状态。
+    只对已判定为同行的群消息调用（rules.check 内）；除首见初始化落盘外不写状态。
     """
     if not enabled(cfg):
         return True, ""
