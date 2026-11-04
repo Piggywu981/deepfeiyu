@@ -71,7 +71,7 @@
 | 会话首见消息 | 初始化 `rounds=0`、`last_human_ts=now`（纯机器人群从此时起计闲置） |
 | **真人消息**（入站、非 system、发送者非同行；或本人手动发的消息 = `is_self` 且非服务回声分支） | `rounds=0`、`last_human_ts=now`——即**让位 + 重新激活**：优先回应真人，互聊从头计数；聚拢窗口内与同行消息合并回复（现有行为），真人的话必然被回应 |
 | 同行消息，闸门评估（放行前） | ① `bot_chat_max_rounds>0 且 rounds>=N` → 拒绝，原因「机器人互聊已达轮数上限」；② `bot_chat_idle_stop_min>0 且 now-last_human_ts>=X*60` → 拒绝，原因「机器人互聊长时间无真人参与」；否则放行 |
-| 同行消息放行后 | `rounds+=1`；若 `rounds==N` → 标记**本轮收尾** |
+| 同行消息的回复**真正开始生成时**（`_auto_reply_run` 拿到会话锁后） | `rounds+=1`；若 `rounds==N` → 标记**本轮收尾**。计数放在这里而非放行时：`_fire_reply` 窗口到期会重跑 `rules.check`，提前计到 N 会把第 N 条自己拦下；拿到锁后计数保证每轮回复只计一次 |
 | AI 自己的回复（`source='agent'` 回声、服务出站） | 不是真人事件，不参与状态机 |
 
 **停止后的恢复**只有两条路：群里出现真人消息（自动重置两字段），或用户本人在群里发一条消息（本人=真人）。不设控制台重置按钮（v1 非目标）。
@@ -82,8 +82,8 @@
 - **现有闸门对同行消息照常全部生效**：工作时段、人工接管、日上限、`min_interval_sec`、黑白名单、`group_need_at`——停止条件④由此覆盖，并用测试固化。
 - `manager.handle_message` 挂钩（状态写入集中在新模块，且仅在 `bot_peers` 非空且消息属于群聊时执行）：
   - 非 self 消息：判定前先分流——非同行且非 system → `reset`；同行 → 交 `rules.check` 闸门；
-  - 放行的同行消息 → `count`，返回值 `==N` 时打收尾标记；
-  - `if msg.is_self:` 的非 soft_echo 分支（人工手机发言）→ `reset`。
+  - `if msg.is_self:` 的非 soft_echo 分支（人工手机发言）→ `reset`；
+- 计数与收尾在 `_auto_reply_run`：拿到会话锁、进入生成前对 burst 调 `count_burst`（含同行消息才计），返回 `True` 即收尾轮，经 `_build_prompt(wrap_up=…)` 注入收尾指令（见第 5.2 节表格的时机说明）。
 - 新模块 `app/botloop.py`（与 `rules.py` 平级，不新建顶层目录）：`is_peer` / `observe` / `count` / `reset` / 闸门读数 / 收尾标记查询，kv 读写与配置读取都收在这里。
 
 ### 5.4 收尾行为
@@ -109,7 +109,7 @@
 | `app/config.py` | `DEFAULTS["auto"]` 增 3 键 |
 | `app/botloop.py` | 新模块：识别、状态机读写、kv 持久化 |
 | `app/rules.py` | `check()` 内接入同行闸门（只读） |
-| `app/wechat/manager.py` | `handle_message` 观察/计数/重置钩子；收尾标记 → 提示词指令 |
+| `app/wechat/manager.py` | `handle_message` 观察/重置钩子；`_auto_reply_run` 计数与收尾标记 → `_build_prompt` 提示词指令 |
 | `app/static/index.html`、`app/static/app.js` | 策略页 3 字段与保存 |
 | `docs/使用说明.md` | 策略页字段说明、限制（wcferry/未登记机器人）、页面表若涉变更同步 |
 | `CHANGELOG.md` | 用户可见改动记录 |
