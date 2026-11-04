@@ -6,7 +6,7 @@ import re
 import time
 from typing import Any
 
-from . import db
+from . import botloop, db
 from .wechat.base import (
     Message,
     format_pat_notice,
@@ -120,6 +120,12 @@ def check(
         return False, "该会话已关闭 AI"
     if _pause_until(chat) > time.time():
         return False, "人工接管中，AI 暂停"
+
+    # 机器人同行互聊停止：只拦登记在册的机器人号；下方时段/日上限等闸门对同行照常生效
+    if botloop.is_peer(cfg, msg):
+        ok, why = botloop.gate(cfg, str(chat.get("uid") or ""))
+        if not ok:
+            return False, why
 
     ident = {str(x) for x in (msg.chat_id, msg.chat_name, chat.get("chat_id"), chat.get("name")) if x}
     wl = _policy_list(auto.get("whitelist"))
