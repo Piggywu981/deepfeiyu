@@ -21,6 +21,9 @@ export class ConsoleApiError extends Error {
   }
 }
 
+/** 单张媒体字节上限：图片/表情远小于此值，超限按上游异常处理，防止拖垮面板。 */
+const MAX_MEDIA_BYTES = 25 * 1024 * 1024
+
 /**
  * 访问令牌优先级：插件配置 → 环境变量 → 项目 data/config.json（只读）。
  * 令牌永远不写日志、不回显给 Client、不进入工具结果。
@@ -73,6 +76,34 @@ export function createConsoleApi({ getConfig, getToken }) {
       throw new ConsoleApiError(response.status, `控制台返回 ${response.status}：${detail || '请求失败'}`)
     }
     return data
+  }
+
+  // 字节流传输：图片/表情不能走 call()（它按 JSON 解析），令牌同样只在 Host 内用。
+  async function fetchBytes(path, { timeoutMs = 10000 } = {}) {
+    const headers = {}
+    const token = await getToken()
+    if (token) headers['x-access-token'] = token
+    let response
+    try {
+      response = await fetch(`${baseUrl()}${path}`, {
+        method: 'GET',
+        headers,
+        signal: AbortSignal.timeout(Math.max(1000, timeoutMs)),
+      })
+    } catch (err) {
+      const code = err?.cause?.code || err?.code || err?.name || 'UNKNOWN'
+      throw new ConsoleDownError(`无法连接 Deep肥鱼控制台 ${baseUrl()}（${code}）`)
+    }
+    const buffer = Buffer.from(await response.arrayBuffer())
+    if (buffer.length > MAX_MEDIA_BYTES) {
+      throw new ConsoleApiError(502, `媒体文件超过 ${Math.round(MAX_MEDIA_BYTES / 1024 / 1024)}MB 上限`)
+    }
+    return {
+      status: response.status,
+      contentType: response.headers.get('content-type') || '',
+      disposition: response.headers.get('content-disposition') || '',
+      body: buffer,
+    }
   }
 
   return {
@@ -130,6 +161,15 @@ export function createConsoleApi({ getConfig, getToken }) {
     personasAdd: (payload) => call('/api/personas', { method: 'POST', body: payload, timeoutMs: 15000 }),
     personasDelete: (name) => call(`/api/personas/${encodeURIComponent(name)}`, { method: 'DELETE' }),
     personasSyncWiki: () => call('/api/personas/sync_wiki', { method: 'POST', body: {}, timeoutMs: 60000 }),
+    // 富媒体：图片/表情走字节代理，收藏走 JSON。
+    messageImage: (uid, msg) => fetchBytes(
+      `/api/chats/${encodeURIComponent(uid)}/messages/${encodeURIComponent(msg)}/image`,
+    ),
+    emojiProxy: (url, md5, download) => fetchBytes(
+      `/api/emoji/proxy?url=${encodeURIComponent(url)}${md5 ? `&md5=${encodeURIComponent(md5)}` : ''}${download ? '&download=1' : ''}`,
+    ),
+    emojisList: (limit = 500) => call(`/api/emojis?limit=${Math.max(1, Math.min(500, Math.trunc(Number(limit) || 500)))}`),
+    emojiFav: (payload) => call('/api/emojis', { method: 'POST', body: payload, timeoutMs: 15000 }),
     updateCheck: () => call('/api/update/check?force=1', { timeoutMs: 30000 }),
   }
 }

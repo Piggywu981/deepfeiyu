@@ -46,6 +46,36 @@ export function registerRoute({ ctx, config, api, state, snapshot, supervisor, s
   // 「关联 DSH 插件」只操作 Host 的 pluginManager 服务，和控制台 HTTP 无关；
   // 服务缺失时 state() 返回 available:false，面板照常可用。
   const dshPlugins = createDshPluginsApi({ ctx })
+
+  // GET 只服务媒体字节：参数全在 query、无 body，响应原样透传（含上游错误状态）。
+  async function sendBytes(res, result) {
+    const headers = {
+      'content-type': result.contentType || 'application/octet-stream',
+      'cache-control': 'private, max-age=86400',
+      'content-length': String(result.body.length),
+    }
+    if (result.disposition) headers['content-disposition'] = result.disposition
+    res.writeHead(result.status || 200, headers)
+    res.end(result.body)
+  }
+
+  const getRoutes = {
+    image: async (params, res) => {
+      const uid = String(params.get('uid') || '').trim()
+      const msg = String(params.get('msg') || '').trim()
+      if (!uid) throw Object.assign(new Error('缺少 uid'), { code: 'INVALID_ARGS' })
+      if (!msg) throw Object.assign(new Error('缺少 msg'), { code: 'INVALID_ARGS' })
+      await sendBytes(res, await api.messageImage(uid, msg))
+    },
+    emoji: async (params, res) => {
+      const url = String(params.get('url') || '').trim()
+      if (!url) throw Object.assign(new Error('缺少 url'), { code: 'INVALID_ARGS' })
+      const md5 = String(params.get('md5') || '').trim()
+      const download = params.get('download') === '1' ? 1 : 0
+      await sendBytes(res, await api.emojiProxy(url, md5, download))
+    },
+  }
+
   const routes = {
     state: async () => snapshot(),
     'console.start': async () => supervisor.start(),
@@ -97,6 +127,24 @@ export function registerRoute({ ctx, config, api, state, snapshot, supervisor, s
       const uids = [...new Set(payload.uids.map((value) => (typeof value === 'string' ? value.trim() : '')).filter(Boolean))]
       if (!uids.length) throw Object.assign(new Error('uids 不能为空'), { code: 'INVALID_ARGS' })
       return await api.chatsBatchAi(uids, enabled)
+    },
+    // 表情收藏：白名单字段构造新对象，前端传来的多余字段一律丢弃。
+    'emoji.fav': async (payload) => {
+      const url = typeof payload.url === 'string' ? payload.url.trim() : ''
+      if (!url) throw Object.assign(new Error('缺少 url'), { code: 'INVALID_ARGS' })
+      const md5 = payload.md5 === undefined ? '' : payload.md5
+      if (typeof md5 !== 'string') throw Object.assign(new Error('md5 必须是字符串'), { code: 'INVALID_ARGS' })
+      const width = payload.width === undefined ? 0 : payload.width
+      const height = payload.height === undefined ? 0 : payload.height
+      if (!Number.isFinite(width) || !Number.isFinite(height)) {
+        throw Object.assign(new Error('width/height 必须是数值'), { code: 'INVALID_ARGS' })
+      }
+      return await api.emojiFav({ url, md5, width, height })
+    },
+    'emojis.list': async (payload) => {
+      const raw = payload && payload.limit !== undefined ? Number(payload.limit) : 500
+      const limit = Number.isFinite(raw) ? Math.max(1, Math.min(500, Math.trunc(raw))) : 500
+      return await api.emojisList(limit)
     },
     stats: async () => ({ stats: await api.stats() }),
     capabilities: async () => ({ capabilities: await api.capabilities() }),
@@ -185,6 +233,26 @@ export function registerRoute({ ctx, config, api, state, snapshot, supervisor, s
       fail(res, rejection === 403 ? 403 : 401, 'UNAUTHORIZED', '请求未通过 Harness 连接鉴权')
       return
     }
+    const url = new URL(req.url || '/', 'http://127.0.0.1')
+    const endpoint = url.pathname.slice(ROUTE_PREFIX.length).replace(/^\/+/, '')
+    // GET 分流在鉴权之后：媒体字节与 JSON 错误体共用同一套同源校验。
+    if (req.method === 'GET') {
+      const route = Object.hasOwn(getRoutes, endpoint) ? getRoutes[endpoint] : undefined
+      if (!route) {
+        if (Object.hasOwn(routes, endpoint)) fail(res, 405, 'METHOD_NOT_ALLOWED', '该端点只接受 POST')
+        else fail(res, 404, 'UNKNOWN_ENDPOINT', `未知 endpoint: ${endpoint}`)
+        return
+      }
+      try {
+        await route(url.searchParams, res)
+      } catch (err) {
+        ctx.logger.debug('deepfeiyu get %s failed: %s', endpoint, err?.message || err)
+        if (err instanceof ConsoleDownError) fail(res, 200, 'CONSOLE_DOWN', describeError(err))
+        else if (err?.code === 'INVALID_ARGS') fail(res, 400, 'INVALID_ARGS', err.message)
+        else fail(res, 200, 'INTERNAL', describeError(err))
+      }
+      return
+    }
     if (req.method !== 'POST') {
       fail(res, 405, 'METHOD_NOT_ALLOWED', '只接受 POST')
       return
@@ -197,8 +265,6 @@ export function registerRoute({ ctx, config, api, state, snapshot, supervisor, s
       fail(res, tooLarge ? 413 : 400, tooLarge ? 'BODY_TOO_LARGE' : 'INVALID_BODY', err?.message || '请求体无效')
       return
     }
-    const url = new URL(req.url || '/', 'http://127.0.0.1')
-    const endpoint = url.pathname.slice(ROUTE_PREFIX.length).replace(/^\/+/, '')
     const route = Object.hasOwn(routes, endpoint) ? routes[endpoint] : undefined
     if (!route) {
       fail(res, 404, 'UNKNOWN_ENDPOINT', `未知 endpoint: ${endpoint}`)

@@ -392,6 +392,25 @@ const ctx = {
   get: () => undefined,
 }
 const api = {
+  messageImage: async (uid, msg) => {
+    calls.push(['messageImage', uid, msg])
+    return { status: 200, contentType: 'image/jpeg', body: Buffer.from('fakejpeg'), disposition: '' }
+  },
+  emojiProxy: async (url, md5, download) => {
+    calls.push(['emojiProxy', url, md5, download])
+    if (url.includes('missing')) {
+      return { status: 404, contentType: 'application/json', body: Buffer.from('{"detail":"本机没有这张图片的缓存"}'), disposition: '' }
+    }
+    return { status: 200, contentType: 'image/gif', body: Buffer.from('fakegif'), disposition: download ? 'attachment; filename="emoji.gif"' : '' }
+  },
+  emojisList: async (limit) => {
+    calls.push(['emojisList', limit])
+    return [{ eid: 1, url: 'https://e.example/x.gif' }]
+  },
+  emojiFav: async (payload) => {
+    calls.push(['emojiFav', payload])
+    return { ok: true, emoji: { eid: 2, url: payload.url } }
+  },
   chatAi: async (uid, enabled) => {
     if (failNext) {
       failNext = false
@@ -418,6 +437,21 @@ registerRoute({
   supervisor: { start() {}, stop() {}, restart() {} },
   sendGate: undefined,
 })
+// 第二个实例：鉴权被拒时 GET 也必须吃 401/403，不能因为是图片就放行。
+let rejectedHandler = null
+registerRoute({
+  ctx: {
+    ...ctx,
+    connection: { requestRejection: () => 403 },
+    webServer: { register: (route) => { rejectedHandler = route.handler; return () => {} } },
+  },
+  config: {},
+  api,
+  state: () => ({}),
+  snapshot: () => ({}),
+  supervisor: { start() {}, stop() {}, restart() {} },
+  sendGate: undefined,
+})
 
 async function post(endpoint, payload) {
   const chunks = [Buffer.from(JSON.stringify(payload))]
@@ -437,6 +471,24 @@ async function post(endpoint, payload) {
   }
   await handler(req, res)
   return { status, body: body ? JSON.parse(body) : null }
+}
+
+async function get(path) {
+  const req = {
+    method: 'GET',
+    url: '/deepfeiyu' + path,
+    headers: {},
+    async *[Symbol.asyncIterator]() {},
+  }
+  let status = 0
+  let headers = {}
+  let body = Buffer.alloc(0)
+  const res = {
+    writeHead(code, nextHeaders) { status = code; headers = nextHeaders || {} },
+    end(text) { body = Buffer.isBuffer(text) ? text : Buffer.from(String(text ?? '')) },
+  }
+  await handler(req, res)
+  return { status, headers, body }
 }
 
 const out = []
@@ -494,6 +546,67 @@ await step('batch-empty-uids', async () => {
 })
 await step('batch-bad-enabled', async () => {
   const r = await post('chats.batchAi', { uids: ['a'], enabled: 'true' })
+  return { http: r.status, code: r.body && r.body.error && r.body.error.code }
+})
+
+await step('get-image-ok', async () => {
+  const r = await get('/image?uid=' + encodeURIComponent('  acc_default:wxid_a  ') + '&msg=9006')
+  return { http: r.status, type: r.headers['content-type'], cache: r.headers['cache-control'], text: r.body.toString() }
+})
+await step('get-image-missing-uid', async () => {
+  const r = await get('/image?msg=9006')
+  return { http: r.status, code: JSON.parse(r.body.toString()).error.code }
+})
+await step('get-unknown', async () => {
+  const r = await get('/nope?uid=a&msg=b')
+  return { http: r.status, code: JSON.parse(r.body.toString()).error.code }
+})
+await step('get-emoji-ok', async () => {
+  const r = await get('/emoji?url=' + encodeURIComponent('https://e.example/x.gif') + '&md5=abc')
+  return { http: r.status, type: r.headers['content-type'], text: r.body.toString() }
+})
+await step('get-emoji-download', async () => {
+  const r = await get('/emoji?url=' + encodeURIComponent('https://e.example/x.gif') + '&download=1')
+  return { http: r.status, disposition: r.headers['content-disposition'] }
+})
+await step('get-emoji-missing-url', async () => {
+  const r = await get('/emoji?md5=abc')
+  return { http: r.status, code: JSON.parse(r.body.toString()).error.code }
+})
+await step('get-emoji-upstream-404', async () => {
+  const r = await get('/emoji?url=' + encodeURIComponent('https://e.example/missing.gif'))
+  return { http: r.status, detail: JSON.parse(r.body.toString()).detail }
+})
+await step('get-to-post-route', async () => {
+  const r = await get('/state')
+  return { http: r.status, code: JSON.parse(r.body.toString()).error.code }
+})
+await step('get-auth-rejected', async () => {
+  const req = { method: 'GET', url: '/deepfeiyu/image?uid=a&msg=b', headers: {}, async *[Symbol.asyncIterator]() {} }
+  let status = 0
+  let body = ''
+  const res = { writeHead(code) { status = code }, end(text) { body = text } }
+  await rejectedHandler(req, res)
+  return { http: status, code: JSON.parse(body).error.code }
+})
+await step('emojis-list-clamp', async () => {
+  const r = await post('emojis.list', { limit: 9999 })
+  return { http: r.status, value: r.body && r.body.value }
+})
+await step('emojis-list-default', async () => {
+  const r = await post('emojis.list', {})
+  return { http: r.status, value: r.body && r.body.value }
+})
+await step('emoji-fav-ok', async () => {
+  const r = await post('emoji.fav', { url: 'https://e.example/x.gif', md5: 'abc', width: 100, height: 80, evil: true })
+  return { http: r.status, value: r.body && r.body.value }
+})
+await step('emoji-fav-missing-url', async () => {
+  const r = await post('emoji.fav', { md5: 'abc' })
+  return { http: r.status, code: r.body && r.body.error && r.body.error.code }
+})
+await step('emoji-fav-bad-width', async () => {
+  const r = await post('emoji.fav', { url: 'https://e.example/x.gif', width: 'wide' })
   return { http: r.status, code: r.body && r.body.error && r.body.error.code }
 })
 
@@ -614,3 +727,73 @@ def test_readme_documents_chat_control():
     usage = (ROOT / "docs" / "使用说明.md").read_text(encoding="utf-8")
     for token in ("多选", "恢复 AI", "AI 开关"):
         assert token in usage, f"docs/使用说明.md 缺少 {token}"
+
+
+def test_rich_media_routes_registered():
+    """期3：Host 要有图片/表情字节 GET 代理与收藏转发，GET 也必须过同源鉴权。"""
+    route = (PKG / "lib" / "route.js").read_text(encoding="utf-8")
+    ops = (PKG / "lib" / "ops.js").read_text(encoding="utf-8")
+    for token in ("getRoutes", "image: async", "emoji: async", "'emoji.fav'", "'emojis.list'",
+                  "METHOD_NOT_ALLOWED", "content-disposition", "cache-control"):
+        assert token in route, f"lib/route.js 缺少 {token}"
+    for token in ("fetchBytes", "messageImage", "emojiProxy", "emojisList", "emojiFav",
+                  "arrayBuffer", "x-access-token", "MAX_MEDIA_BYTES"):
+        assert token in ops, f"lib/ops.js 缺少 {token}"
+    # GET 分流必须在 requestRejection 之后：不能出现「先放行 GET、后鉴权」
+    auth_pos = route.index("ctx.connection.requestRejection")
+    get_pos = route.index("req.method === 'GET'")
+    assert auth_pos < get_pos, "GET 分流必须在同源鉴权之后"
+    for message in ("缺少 uid", "缺少 msg", "缺少 url", "md5 必须是字符串",
+                    "width/height 必须是数值"):
+        assert message in route, f"route.js 缺少校验文案 {message}"
+
+
+def test_rich_media_route_behavior():
+    """GET 字节代理与收藏端点：透传、鉴权、参数校验、白名单与错误分类。"""
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("本机没有 node，无法跑路由行为测试（已在 PR 中如实说明）")
+    proc = subprocess.run(
+        [node, "--input-type=module", "-e", ROUTE_HARNESS],
+        cwd=str(PKG),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=60,
+    )
+    assert proc.returncode == 0, (proc.stderr or proc.stdout)
+    results = {item["name"]: item for item in json.loads(proc.stdout)}
+    for name, item in results.items():
+        assert item["status"] == "ok", f"{name} 抛异常：{item.get('error')}"
+
+    img = results["get-image-ok"]
+    assert img["http"] == 200 and img["type"] == "image/jpeg", img
+    assert "max-age=86400" in img["cache"] and img["text"] == "fakejpeg", img
+    assert img["calls"] == [["messageImage", "acc_default:wxid_a", "9006"]], img
+    assert results["get-image-missing-uid"]["http"] == 400
+    assert results["get-image-missing-uid"]["code"] == "INVALID_ARGS"
+    assert results["get-unknown"]["http"] == 404
+    assert results["get-unknown"]["code"] == "UNKNOWN_ENDPOINT"
+
+    emoji = results["get-emoji-ok"]
+    assert emoji["http"] == 200 and emoji["type"] == "image/gif" and emoji["text"] == "fakegif", emoji
+    assert emoji["calls"] == [["emojiProxy", "https://e.example/x.gif", "abc", 0]], emoji
+    dl = results["get-emoji-download"]
+    assert dl["http"] == 200 and dl["disposition"] == 'attachment; filename="emoji.gif"', dl
+    assert results["get-emoji-missing-url"]["code"] == "INVALID_ARGS"
+    up = results["get-emoji-upstream-404"]
+    assert up["http"] == 404 and "缓存" in up["detail"], up
+    assert results["get-to-post-route"]["http"] == 405
+    assert results["get-to-post-route"]["code"] == "METHOD_NOT_ALLOWED"
+    assert results["get-auth-rejected"]["http"] == 403
+    assert results["get-auth-rejected"]["code"] == "UNAUTHORIZED"
+
+    clamp = results["emojis-list-clamp"]
+    assert clamp["calls"] == [["emojisList", 500]] and len(clamp["value"]) == 1, clamp
+    assert results["emojis-list-default"]["calls"] == [["emojisList", 500]]
+    fav = results["emoji-fav-ok"]
+    assert fav["http"] == 200 and fav["value"]["ok"] is True, fav
+    assert set(fav["calls"][0][1]) == {"url", "md5", "width", "height"}, "白名单外字段被透传"
+    assert results["emoji-fav-missing-url"]["code"] == "INVALID_ARGS"
+    assert results["emoji-fav-bad-width"]["code"] == "INVALID_ARGS"
