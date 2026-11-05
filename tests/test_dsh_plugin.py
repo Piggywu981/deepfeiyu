@@ -588,3 +588,19 @@ def test_client_paused_tag_clickable():
     assert re.search(r"is-clickable[\s\S]{0,400}?resumeChat\(uid\)", source), (
         "接管徽标没有接到 resumeChat(uid)"
     )
+
+
+def test_client_multi_select_bulk():
+    """多选批量：模式开关、全选作用于当前列表、批量端点与退出清空选中集。"""
+    source = (PKG / "client.js").read_text(encoding="utf-8")
+    for token in ("selectMode", "selectedChats", "toggleSelectMode", "toggleSelectAll",
+                  "handleChatRowClick", "bulkSetAi", "chats.batchAi",
+                  "退出多选", "设为人工", "设为 AI", "已选 ",
+                  "dsh-deepfeiyu-is-checked", "dsh-deepfeiyu-chats-tools"):
+        assert token in source, f"client.js 缺少 {token}"
+    # 批量成功要退出多选并清空选中集（对齐控制台行为）
+    assert re.search(r"bulkSetAi[\s\S]{0,900}?setSelectMode\(false\)", source), (
+        "bulkSetAi 成功后未退出多选模式"
+    )
+    # 搜索结果是子集，不得拿子集修剪选中集：只在无关键词时修剪
+    assert "if (!keywordValue)" in source, "loadChats 未按是否有关键词区分选中集修剪"

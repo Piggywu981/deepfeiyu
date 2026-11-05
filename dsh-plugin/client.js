@@ -112,6 +112,8 @@ window.__ModuleLoader__.load({
 .dsh-deepfeiyu-body { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 12px; flex: 1; min-height: 0; }
 .dsh-deepfeiyu-chats { display: flex; flex-direction: column; gap: 8px; min-height: 0; padding: 10px; border: 1px solid var(--dsw-alias-border-l2, #0000001a); border-radius: 12px; background: var(--dsw-alias-bg-layer-1, #fff); }
 .dsh-deepfeiyu-chats-head { display: flex; gap: 8px; align-items: center; }
+.dsh-deepfeiyu-chats-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.dsh-deepfeiyu-chat.dsh-deepfeiyu-is-checked { background: var(--dsw-alias-interactive-bg-hover, #2631480f); box-shadow: inset 0 0 0 1px var(--dsw-alias-state-business-primary, #4176e6); }
 .dsh-deepfeiyu-input { flex: 1; min-width: 0; margin: 0; padding: 5px 10px; border: 1px solid var(--dsw-alias-border-l2, #0000001a); border-radius: 8px; background: var(--dsw-alias-bg-base, #fff); color: var(--dsw-alias-label-primary, #0f1115); font: inherit; font-size: 13px; line-height: 20px; }
 .dsh-deepfeiyu-input:focus, .dsh-deepfeiyu-textarea:focus { outline: none; border-color: var(--dsw-alias-brand-primary, #0f1115); }
 .dsh-deepfeiyu-input:disabled { opacity: .6; }
@@ -403,6 +405,9 @@ window.__ModuleLoader__.load({
           const [chatBusy, setChatBusy] = React.useState(false);
           const [chatFeedback, setChatFeedback] = React.useState(null);
           const feedbackTimer = React.useRef(null);
+          // 多选批量：selectMode 下点行只切换选中，不打开会话。
+          const [selectMode, setSelectMode] = React.useState(false);
+          const [selectedChats, setSelectedChats] = React.useState(() => new Set());
 
           const running = Boolean(snapshot && snapshot.running);
           const phase = snapshot && snapshot.phase ? String(snapshot.phase) : 'unknown';
@@ -462,7 +467,18 @@ window.__ModuleLoader__.load({
             try {
               const value = await call('chats.list', { keyword: keywordValue || '', limit: 200 });
               if (!mounted.current || seq !== chatsSeq.current) return;
-              setChats(Array.isArray(value && value.chats) ? value.chats : []);
+              const list = Array.isArray(value && value.chats) ? value.chats : [];
+              setChats(list);
+              // 只有不带关键词的全量拉取才修剪：搜索结果是子集，
+              // 拿子集修剪会把「当前搜索看不见但仍然有效」的选中项误删。
+              if (!keywordValue) {
+                setSelectedChats((previous) => {
+                  if (!previous.size) return previous;
+                  const alive = new Set(list.map((item) => item && item.uid).filter(Boolean));
+                  const next = new Set([...previous].filter((uid) => alive.has(uid)));
+                  return next.size === previous.size ? previous : next;
+                });
+              }
             } catch (error0) {
               if (!mounted.current || seq !== chatsSeq.current) return;
               setChats([]);
@@ -537,6 +553,8 @@ window.__ModuleLoader__.load({
               setMessages([]);
               setSendError('');
               setChatFeedback(null);
+              setSelectMode(false);
+              setSelectedChats(new Set());
             }
             wasRunning.current = running;
           }, [running]);
@@ -583,6 +601,8 @@ window.__ModuleLoader__.load({
             setDraft('');
             setSendError('');
             setChatFeedback(null);
+            setSelectMode(false);
+            setSelectedChats(new Set());
           }
 
           async function runConsoleAction(name) {
@@ -613,6 +633,8 @@ window.__ModuleLoader__.load({
               setChat(null);
               setMessages([]);
               setChatFeedback(null);
+              setSelectMode(false);
+              setSelectedChats(new Set());
               await Promise.all([loadAccounts(), loadChats(keyword), loadStats(), loadState()]);
             } catch (error0) {
               if (mounted.current) setError(errorMessage(error0));
@@ -690,6 +712,67 @@ window.__ModuleLoader__.load({
               if (!mounted.current) return;
               setError(errorMessage(error0));
               setChatFeedbackOnce({ scope, tone: 'error', text: errorMessage(error0) });
+            } finally {
+              if (mounted.current) setChatBusy(false);
+            }
+          }
+
+          function toggleSelectMode() {
+            if (!running) return;
+            if (selectMode) setSelectedChats(new Set());
+            setSelectMode(!selectMode);
+            setChatFeedback(null);
+          }
+
+          function handleChatRowClick(uid) {
+            if (selectMode) {
+              setSelectedChats((previous) => {
+                const next = new Set(previous);
+                if (next.has(uid)) next.delete(uid);
+                else next.add(uid);
+                return next;
+              });
+              return;
+            }
+            selectChat(uid);
+          }
+
+          function toggleSelectAll() {
+            setSelectedChats((previous) => {
+              const alive = chats.filter((item) => item && item.uid).map((item) => item.uid);
+              if (!alive.length) return previous;
+              const all = alive.every((uid) => previous.has(uid));
+              const next = new Set(previous);
+              for (const uid of alive) {
+                if (all) next.delete(uid);
+                else next.add(uid);
+              }
+              return next;
+            });
+          }
+
+          async function bulkSetAi(enabled) {
+            const uids = [...selectedChats];
+            if (!uids.length || chatBusy || !running) return;
+            setChatBusy(true);
+            setChatFeedback(null);
+            try {
+              // 200 个会话逐个改库可能慢于默认 10s，放宽到 30s。
+              const value = await call('chats.batchAi', { uids, enabled }, 30000);
+              if (!mounted.current) return;
+              const changed = value && typeof value.changed === 'number' ? value.changed : 0;
+              setSelectMode(false);
+              setSelectedChats(new Set());
+              setChatFeedbackOnce({
+                scope: 'list',
+                tone: 'ok',
+                text: '已把 ' + changed + ' 个会话设为' + (enabled ? ' AI 自动回复' : '人工接管'),
+              });
+              await loadChats(keyword);
+            } catch (error0) {
+              if (!mounted.current) return;
+              setError(errorMessage(error0));
+              setChatFeedbackOnce({ scope: 'list', tone: 'error', text: errorMessage(error0) });
             } finally {
               if (mounted.current) setChatBusy(false);
             }
@@ -875,9 +958,11 @@ window.__ModuleLoader__.load({
               key: uid,
               type: 'button',
               role: 'listitem',
-              className: 'dsh-deepfeiyu-chat' + (uid === selectedUid ? ' dsh-deepfeiyu-is-active' : ''),
+              className: 'dsh-deepfeiyu-chat'
+                + (uid === selectedUid ? ' dsh-deepfeiyu-is-active' : '')
+                + (selectMode && selectedChats.has(uid) ? ' dsh-deepfeiyu-is-checked' : ''),
               title: item.name ? String(item.name) : uid,
-              onClick: () => selectChat(uid),
+              onClick: () => handleChatRowClick(uid),
             },
             h('span', { className: 'dsh-deepfeiyu-chat-line' },
               h('span', { className: 'dsh-deepfeiyu-chat-name' }, item.name ? String(item.name) : uid),
@@ -910,6 +995,36 @@ window.__ModuleLoader__.load({
                   disabled: !running || chatsLoading,
                   title: '刷新会话列表',
                 })),
+              h('div', { className: 'dsh-deepfeiyu-chats-tools' },
+                actionButton(selectMode ? '退出多选' : '多选', toggleSelectMode, {
+                  disabled: !running,
+                  title: '批量设置会话的 AI 开关',
+                }),
+                selectMode
+                  ? h(React.Fragment, null,
+                      actionButton(
+                        chats.length > 0 && chats.every((item) => item && item.uid && selectedChats.has(item.uid))
+                          ? '取消全选'
+                          : '全选',
+                        toggleSelectAll,
+                        { disabled: !chats.length, title: '全选当前列表里的会话' },
+                      ),
+                      h('span', { className: 'dsh-deepfeiyu-hint' }, '已选 ' + selectedChats.size),
+                      actionButton('设为人工', () => { void bulkSetAi(false); }, {
+                        disabled: !running || chatBusy || !selectedChats.size,
+                        title: '把选中会话的 AI 关闭',
+                      }),
+                      actionButton('设为 AI', () => { void bulkSetAi(true); }, {
+                        disabled: !running || chatBusy || !selectedChats.size,
+                        title: '把选中会话交给 AI 自动回复',
+                      }))
+                  : null,
+                chatFeedback && chatFeedback.scope === 'list'
+                  ? h('span', {
+                      className: 'dsh-deepfeiyu-feedback dsh-deepfeiyu-is-' + (chatFeedback.tone === 'ok' ? 'ok' : 'error'),
+                      role: chatFeedback.tone === 'ok' ? 'status' : 'alert',
+                    }, chatFeedback.text)
+                  : null),
               h('div', { className: 'dsh-deepfeiyu-chat-list', role: 'list' },
                 rows.length ? rows : h('p', { className: 'dsh-deepfeiyu-hint dsh-deepfeiyu-list-hint' }, hint)));
           }
