@@ -155,6 +155,14 @@ window.__ModuleLoader__.load({
 .dsh-deepfeiyu-msg.dsh-deepfeiyu-is-mine .dsh-deepfeiyu-bubble { border-color: transparent; background: var(--dsw-alias-button-primary-dimmed, #ebeef2); }
 .dsh-deepfeiyu-bubble .dsh-deepfeiyu-tag { align-self: flex-start; }
 .dsh-deepfeiyu-msg-text { font-size: 13px; line-height: 1.55; white-space: pre-wrap; }
+.dsh-deepfeiyu-msg-image-link { display: inline-block; max-width: 100%; }
+.dsh-deepfeiyu-msg-image { display: block; max-width: 260px; max-height: 260px; border-radius: 8px; object-fit: cover; background: var(--dsw-alias-bg-layer-2, #f5f6f7); }
+.dsh-deepfeiyu-msg-emoji-wrap { display: inline-flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.dsh-deepfeiyu-msg-emoji { max-width: 160px; max-height: 120px; object-fit: contain; }
+.dsh-deepfeiyu-emoji-actions { display: inline-flex; gap: 6px; opacity: 0; transition: opacity .15s; }
+.dsh-deepfeiyu-msg-emoji-wrap:hover .dsh-deepfeiyu-emoji-actions, .dsh-deepfeiyu-emoji-actions:focus-within { opacity: 1; }
+.dsh-deepfeiyu-emoji-download { font-size: 12px; line-height: 20px; color: var(--dsw-alias-label-secondary, #61666b); text-decoration: none; }
+.dsh-deepfeiyu-emoji-error { color: var(--dsw-alias-state-error-primary, #ec1313); font-size: 12px; line-height: 18px; overflow-wrap: anywhere; }
 .dsh-deepfeiyu-composer { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-top: 1px solid var(--dsw-alias-border-l1, #0000000a); }
 .dsh-deepfeiyu-composer-row { display: flex; align-items: flex-end; gap: 8px; }
 .dsh-deepfeiyu-textarea { flex: 1; min-height: 56px; max-height: 120px; margin: 0; padding: 7px 10px; border: 1px solid var(--dsw-alias-border-l2, #0000001a); border-radius: 8px; background: var(--dsw-alias-bg-base, #fff); color: var(--dsw-alias-label-primary, #0f1115); font: inherit; font-size: 13px; line-height: 1.5; resize: none; }
@@ -321,6 +329,17 @@ window.__ModuleLoader__.load({
       return 'http://127.0.0.1:' + port;
     }
 
+    /** 图片字节代理地址：同源 GET，令牌只在 Host 内使用。 */
+    function imageUrl(uid, msgId) {
+      return '/deepfeiyu/image?uid=' + encodeURIComponent(uid) + '&msg=' + encodeURIComponent(msgId);
+    }
+
+    /** 表情字节代理地址；download=1 时由控制台加 Content-Disposition。 */
+    function emojiSrc(info) {
+      return '/deepfeiyu/emoji?url=' + encodeURIComponent(info.url)
+        + (info.md5 ? '&md5=' + encodeURIComponent(info.md5) : '');
+    }
+
     return {
       // 只依赖 slot 服务；Host 路由自带 Host/Origin/Cookie 鉴权，Client 不注入 connection。
       inject: ['slots'],
@@ -408,6 +427,11 @@ window.__ModuleLoader__.load({
           // 多选批量：selectMode 下点行只切换选中，不打开会话。
           const [selectMode, setSelectMode] = React.useState(false);
           const [selectedChats, setSelectedChats] = React.useState(() => new Set());
+          // 富媒体回退：加载失败的图片/表情按 key 记账，轮询重渲染不再重复打请求。
+          const [mediaFailed, setMediaFailed] = React.useState(() => new Set());
+          // 表情收藏态：控制台运行时拉一次表情墙，收藏成功后本地追加。
+          const [emojiFavs, setEmojiFavs] = React.useState(() => new Set());
+          const [emojiFavError, setEmojiFavError] = React.useState('');
 
           const running = Boolean(snapshot && snapshot.running);
           const phase = snapshot && snapshot.phase ? String(snapshot.phase) : 'unknown';
@@ -543,6 +567,7 @@ window.__ModuleLoader__.load({
             if (running && !wasRunning.current) {
               void loadAccounts();
               void loadStats();
+              void loadEmojiFavs();
             } else if (!running && wasRunning.current) {
               setAccounts([]);
               setAccountsLoaded(false);
@@ -603,6 +628,8 @@ window.__ModuleLoader__.load({
             setChatFeedback(null);
             setSelectMode(false);
             setSelectedChats(new Set());
+            setMediaFailed(new Set());
+            setEmojiFavError('');
           }
 
           async function runConsoleAction(name) {
@@ -775,6 +802,37 @@ window.__ModuleLoader__.load({
               setChatFeedbackOnce({ scope: 'list', tone: 'error', text: errorMessage(error0) });
             } finally {
               if (mounted.current) setChatBusy(false);
+            }
+          }
+
+          function markMediaFailed(key) {
+            if (!key) return;
+            setMediaFailed((previous) => (previous.has(key) ? previous : new Set(previous).add(key)));
+          }
+
+          async function loadEmojiFavs() {
+            try {
+              const value = await call('emojis.list', { limit: 500 });
+              if (!mounted.current || !Array.isArray(value)) return;
+              setEmojiFavs(new Set(value.map((item) => item && item.url).filter(Boolean)));
+            } catch {
+              // 表情墙拉不到只影响「已收藏」标记：静默降级，不打扰消息流。
+            }
+          }
+
+          async function favEmoji(info) {
+            setEmojiFavError('');
+            try {
+              await call('emoji.fav', {
+                url: info.url,
+                md5: info.md5 || '',
+                width: Number(info.width) || 0,
+                height: Number(info.height) || 0,
+              }, 15000);
+              if (!mounted.current) return;
+              setEmojiFavs((previous) => new Set(previous).add(info.url));
+            } catch (error0) {
+              if (mounted.current) setEmojiFavError(errorMessage(error0));
             }
           }
 
@@ -1035,6 +1093,10 @@ window.__ModuleLoader__.load({
             const rawContent = String(message.content === null || message.content === undefined ? '' : message.content).trim();
             // 图片/语音等摘要本身就是「[图片]」这类占位，类型标签已经说明，不再重复一遍。
             const content = rawContent && typeText && rawContent === '[' + typeText + ']' ? '' : rawContent;
+            const imageId = message.msg_type === 'image' && message.id ? String(message.id) : '';
+            const emojiInfo = message.meta && message.meta.emoji && message.meta.emoji.url ? message.meta.emoji : null;
+            const imageKey = imageId ? 'image:' + imageId : '';
+            const emojiKey = emojiInfo ? 'emoji:' + emojiInfo.url : '';
             return h('div', {
               key: message.id || String(message.ts || 0) + '-' + index,
               className: 'dsh-deepfeiyu-msg'
@@ -1046,9 +1108,53 @@ window.__ModuleLoader__.load({
               h('span', { className: 'dsh-deepfeiyu-msg-time' }, formatMessageTime(message.ts))),
             h('div', { className: 'dsh-deepfeiyu-bubble' },
               typeText ? h('span', { className: 'dsh-deepfeiyu-tag' }, typeText) : null,
-              content || typeText
-                ? h('span', { className: 'dsh-deepfeiyu-msg-text' }, content)
-                : h('span', { className: 'dsh-deepfeiyu-msg-text' }, '（空消息）')));
+              imageId
+                ? (mediaFailed.has(imageKey)
+                    ? h('span', { className: 'dsh-deepfeiyu-msg-text' }, '[图片]')
+                    : h('a', {
+                        className: 'dsh-deepfeiyu-msg-image-link',
+                        href: imageUrl(selectedUid, imageId),
+                        target: '_blank',
+                        rel: 'noopener',
+                        title: '点开查看原图',
+                      },
+                      h('img', {
+                        className: 'dsh-deepfeiyu-msg-image',
+                        src: imageUrl(selectedUid, imageId),
+                        alt: '图片',
+                        loading: 'lazy',
+                        onError: () => markMediaFailed(imageKey),
+                      })))
+                : emojiInfo
+                  ? (mediaFailed.has(emojiKey)
+                      ? h('span', { className: 'dsh-deepfeiyu-msg-text' }, '[表情]')
+                      : h('span', { className: 'dsh-deepfeiyu-msg-emoji-wrap' },
+                          h('img', {
+                            className: 'dsh-deepfeiyu-msg-emoji',
+                            src: emojiSrc(emojiInfo),
+                            alt: '表情',
+                            loading: 'lazy',
+                            onError: () => markMediaFailed(emojiKey),
+                          }),
+                          h('span', { className: 'dsh-deepfeiyu-emoji-actions' },
+                            h('button', {
+                              type: 'button',
+                              className: 'dsh-deepfeiyu-btn' + (emojiFavs.has(emojiInfo.url) ? ' dsh-deepfeiyu-btn-on' : ''),
+                              title: emojiFavs.has(emojiInfo.url) ? '已收藏' : '收藏到表情面板',
+                              onClick: () => { void favEmoji(emojiInfo); },
+                            }, emojiFavs.has(emojiInfo.url) ? '★已收藏' : '★收藏'),
+                            h('a', {
+                              className: 'dsh-deepfeiyu-emoji-download',
+                              href: emojiSrc(emojiInfo) + '&download=1',
+                              download: 'emoji.gif',
+                              title: '下载',
+                            }, '⬇')),
+                          emojiFavError
+                            ? h('span', { className: 'dsh-deepfeiyu-emoji-error', role: 'alert' }, emojiFavError)
+                            : null))
+                  : (content || typeText
+                      ? h('span', { className: 'dsh-deepfeiyu-msg-text' }, content)
+                      : h('span', { className: 'dsh-deepfeiyu-msg-text' }, '（空消息）'))));
           }
 
           function handleMessagesScroll(event) {

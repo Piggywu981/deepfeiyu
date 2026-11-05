@@ -797,3 +797,18 @@ def test_rich_media_route_behavior():
     assert set(fav["calls"][0][1]) == {"url", "md5", "width", "height"}, "白名单外字段被透传"
     assert results["emoji-fav-missing-url"]["code"] == "INVALID_ARGS"
     assert results["emoji-fav-bad-width"]["code"] == "INVALID_ARGS"
+
+
+def test_client_image_and_emoji_rendering():
+    """图片与表情走同源字节代理渲染，失败回退占位，表情带收藏/下载。"""
+    source = (PKG / "client.js").read_text(encoding="utf-8")
+    for token in ("dsh-deepfeiyu-msg-image", "dsh-deepfeiyu-msg-image-link",
+                  "/deepfeiyu/image?", "/deepfeiyu/emoji?",
+                  "meta.emoji", "emojiFavs", "markMediaFailed", "favEmoji",
+                  "emojis.list", "emoji.fav", "dsh-deepfeiyu-emoji-actions",
+                  "loading: 'lazy'", "dsh-deepfeiyu-emoji-error"):
+        assert token in source, f"client.js 缺少 {token}"
+    # 图片必须新标签打开原图（对齐控制台）
+    assert "target: '_blank'" in source, "图片链接未用新标签打开"
+    # 媒体失败回退不能用 DOM 手术：轮询重渲染会来回打架
+    assert "replaceWith" not in source, "禁止 DOM 手术式回退，用状态记账"
