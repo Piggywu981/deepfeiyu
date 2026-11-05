@@ -825,3 +825,13 @@ def test_client_quote_and_fallback_alignment():
     assert "rawContent === '[' + typeText + ']'" not in source, "去重逻辑仍在，会把 [系统消息] 等真实文本吞掉"
     # 正文尾部的 [引用…] 要剥掉，由引用块单独渲染
     assert r"\[引用[^\n]*\]\s*$" in source, "未剥离正文尾部的引用摘要"
+
+
+def test_readme_documents_rich_messages():
+    """期3 富显示必须在插件 README 与使用说明里可见。"""
+    readme = (PKG / "README.md").read_text(encoding="utf-8")
+    for token in ("图片", "表情", "引用", "fetchBytes", "/deepfeiyu/image"):
+        assert token in readme, f"dsh-plugin/README.md 缺少 {token}"
+    usage = (ROOT / "docs" / "使用说明.md").read_text(encoding="utf-8")
+    for token in ("图片", "表情", "引用"):
+        assert token in usage, f"docs/使用说明.md 缺少 {token}"
