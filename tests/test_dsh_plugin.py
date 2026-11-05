@@ -812,3 +812,16 @@ def test_client_image_and_emoji_rendering():
     assert "target: '_blank'" in source, "图片链接未用新标签打开"
     # 媒体失败回退不能用 DOM 手术：轮询重渲染会来回打架
     assert "replaceWith" not in source, "禁止 DOM 手术式回退，用状态记账"
+
+
+def test_client_quote_and_fallback_alignment():
+    """引用渲染成引用块并剥正文尾巴；其余类型按控制台同款显示真实文本。"""
+    source = (PKG / "client.js").read_text(encoding="utf-8")
+    for token in ("meta.refer", "dsh-deepfeiyu-msg-quote", "dsh-deepfeiyu-msg-quote-name",
+                  "dsh-deepfeiyu-msg-quote-body", "dsh-deepfeiyu-msg-quote-img",
+                  "refer.msg_id", "refer.emoji", "String(refer.type)"):
+        assert token in source, f"client.js 缺少 {token}"
+    # 去重吞内容的逻辑必须删除——这正是「只剩占位符」的根因
+    assert "rawContent === '[' + typeText + ']'" not in source, "去重逻辑仍在，会把 [系统消息] 等真实文本吞掉"
+    # 正文尾部的 [引用…] 要剥掉，由引用块单独渲染
+    assert r"\[引用[^\n]*\]\s*$" in source, "未剥离正文尾部的引用摘要"

@@ -163,6 +163,10 @@ window.__ModuleLoader__.load({
 .dsh-deepfeiyu-msg-emoji-wrap:hover .dsh-deepfeiyu-emoji-actions, .dsh-deepfeiyu-emoji-actions:focus-within { opacity: 1; }
 .dsh-deepfeiyu-emoji-download { font-size: 12px; line-height: 20px; color: var(--dsw-alias-label-secondary, #61666b); text-decoration: none; }
 .dsh-deepfeiyu-emoji-error { color: var(--dsw-alias-state-error-primary, #ec1313); font-size: 12px; line-height: 18px; overflow-wrap: anywhere; }
+.dsh-deepfeiyu-msg-quote { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; padding: 4px 8px; border-left: 3px solid var(--dsw-alias-border-l2, #0000001a); background: var(--dsw-alias-bg-layer-2, #f5f6f7); border-radius: 0 6px 6px 0; font-size: 12px; color: var(--dsw-alias-label-secondary, #61666b); }
+.dsh-deepfeiyu-msg-quote-name { font-weight: 500; }
+.dsh-deepfeiyu-msg-quote-body { overflow-wrap: anywhere; }
+.dsh-deepfeiyu-msg-quote-img { max-width: 200px; max-height: 160px; border-radius: 6px; object-fit: cover; }
 .dsh-deepfeiyu-composer { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-top: 1px solid var(--dsw-alias-border-l1, #0000000a); }
 .dsh-deepfeiyu-composer-row { display: flex; align-items: flex-end; gap: 8px; }
 .dsh-deepfeiyu-textarea { flex: 1; min-height: 56px; max-height: 120px; margin: 0; padding: 7px 10px; border: 1px solid var(--dsw-alias-border-l2, #0000001a); border-radius: 8px; background: var(--dsw-alias-bg-base, #fff); color: var(--dsw-alias-label-primary, #0f1115); font: inherit; font-size: 13px; line-height: 1.5; resize: none; }
@@ -1091,12 +1095,12 @@ window.__ModuleLoader__.load({
             const mine = Boolean(message.is_self);
             const typeText = message.msg_type && message.msg_type !== 'text' ? msgTypeText(message.msg_type) : '';
             const rawContent = String(message.content === null || message.content === undefined ? '' : message.content).trim();
-            // 图片/语音等摘要本身就是「[图片]」这类占位，类型标签已经说明，不再重复一遍。
-            const content = rawContent && typeText && rawContent === '[' + typeText + ']' ? '' : rawContent;
             const imageId = message.msg_type === 'image' && message.id ? String(message.id) : '';
             const emojiInfo = message.meta && message.meta.emoji && message.meta.emoji.url ? message.meta.emoji : null;
             const imageKey = imageId ? 'image:' + imageId : '';
             const emojiKey = emojiInfo ? 'emoji:' + emojiInfo.url : '';
+            const refer = message.meta && message.meta.refer ? message.meta.refer : null;
+            const quoteCapable = message.msg_type === 'text' || message.msg_type === 'link';
             return h('div', {
               key: message.id || String(message.ts || 0) + '-' + index,
               className: 'dsh-deepfeiyu-msg'
@@ -1152,9 +1156,35 @@ window.__ModuleLoader__.load({
                           emojiFavError
                             ? h('span', { className: 'dsh-deepfeiyu-emoji-error', role: 'alert' }, emojiFavError)
                             : null))
-                  : (content || typeText
-                      ? h('span', { className: 'dsh-deepfeiyu-msg-text' }, content)
-                      : h('span', { className: 'dsh-deepfeiyu-msg-text' }, '（空消息）'))));
+                  : refer && quoteCapable
+                    ? h('span', { className: 'dsh-deepfeiyu-msg-text' },
+                        rawContent.replace(/\s*\[引用[^\n]*\]\s*$/, '').trim(),
+                        h('span', { className: 'dsh-deepfeiyu-msg-quote' },
+                          h('span', { className: 'dsh-deepfeiyu-msg-quote-name' }, refer.displayname || '引用消息'),
+                          String(refer.type) === '3' && (refer.msg_id || message.id)
+                            ? (mediaFailed.has('image:' + String(refer.msg_id || message.id))
+                                ? h('span', { className: 'dsh-deepfeiyu-msg-quote-body' }, '[图片]')
+                                : h('img', {
+                                    className: 'dsh-deepfeiyu-msg-quote-img',
+                                    src: imageUrl(selectedUid, String(refer.msg_id || message.id)),
+                                    alt: '引用图片',
+                                    loading: 'lazy',
+                                    onError: () => markMediaFailed('image:' + String(refer.msg_id || message.id)),
+                                  }))
+                            : refer.emoji && refer.emoji.url
+                              ? (mediaFailed.has('emoji:' + refer.emoji.url)
+                                  ? h('span', { className: 'dsh-deepfeiyu-msg-quote-body' }, '[表情]')
+                                  : h('img', {
+                                      className: 'dsh-deepfeiyu-msg-quote-img',
+                                      src: emojiSrc(refer.emoji),
+                                      alt: '引用表情',
+                                      loading: 'lazy',
+                                      onError: () => markMediaFailed('emoji:' + refer.emoji.url),
+                                    }))
+                              : h('span', { className: 'dsh-deepfeiyu-msg-quote-body' }, refer.summary || '')))
+                    : (rawContent || typeText
+                        ? h('span', { className: 'dsh-deepfeiyu-msg-text' }, rawContent)
+                        : h('span', { className: 'dsh-deepfeiyu-msg-text' }, '（空消息）'))));
           }
 
           function handleMessagesScroll(event) {
