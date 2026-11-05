@@ -11,14 +11,15 @@
 - 消息流按控制台同款分支渲染：图片内联缩略图（点击新标签打开原图，失败回退 `[图片]`）、表情动图（悬停 ★收藏 / ⬇下载，已收藏状态来自表情墙）、引用消息渲染为引用块（昵称 + 摘要，被引图片/表情直接显示原图，正文尾部不再出现 `[引用…]` 文本）。
 - 删除面板「内容等于 `[类型]` 就吞成标签」的去重逻辑：文件 `[文件] 文件名`、聊天记录多行转录、入群/被踢等系统消息的真实文本照常显示（多行由既有 `white-space: pre-wrap` 还原）。
 - Host 侧新增同源 GET 字节代理 `GET /deepfeiyu/image`、`GET /deepfeiyu/emoji`（过 `requestRejection` 同源鉴权、令牌只在 Host 内用、单张 25MB 上限、`private, max-age=86400` 缓存、上游错误状态原样透传给 `onerror`）与 `emojis.list` / `emoji.fav` 两个收藏端点（白名单字段构造，多余字段丢弃）。Python 侧零改动、零新依赖。
-- 验证状态：`tests/test_dsh_plugin.py` **41 passed**（含假 ctx 驱动真实 handler 的 GET/POST 行为测试：字节透传、鉴权 403、参数 400、上游 404 透传、405/404 分类、白名单剥离）；全量 `pytest -q` **1614 passed / 1 skipped / 0 failed**（97.71s，较期1 终值 1609 多出的 5 个即本次新增）；`node --check`（经 `test_js_syntax`）通过；`python tools/release_snapshot.py --scan-tracked .` 扫描通过、`git diff --check` 干净。实机对照控制台逐类核对见下一条「实机验证」记录。
+- 验证状态：`tests/test_dsh_plugin.py` **41 passed**（含假 ctx 驱动真实 handler 的 GET/POST 行为测试：字节透传、鉴权 403、参数 400、上游 404 透传、405/404 分类、白名单剥离）；全量 `pytest -q` **1614 passed / 1 skipped / 0 failed**（97.71s，较期1 终值 1609 多出的 5 个即本次新增）；`node --check`（经 `test_js_syntax`）通过；`python tools/release_snapshot.py --scan-tracked .` 扫描通过、`git diff --check` 干净。
+- 实机状态（2026-11-05 本地合并时）：插件关/开重载两次 `application: applied`，控制台随重载重启后 `running` + `reachable`；合并结果（`a7338f7`）全量 `pytest -q` 再跑一次 **1614 passed / 1 skipped / 0 failed**（92.78s）。**期1 与期3 的验收清单均未收到逐项回执**——面板视觉与逐类对照的终验待用户确认后在此补记，不代填。
 
 ### 2026-11-05 · DSH 面板会话控制（期1：AI 开关 / 恢复接管 / 多选批量）
 
 - 面板线程头新增会话 AI 开关、状态副标题（群聊/私聊 · AI 自动回复/人工接管中/AI 已关闭）、「人工接管中」徽标与「恢复 AI」按钮；会话列表的「人工」徽标改为可点击，点击即恢复该会话的 AI 自动回复且不打开会话。
 - 会话列表新增「多选」：多选/退出多选、全选（作用于当前搜索结果）、已选计数、批量「设为人工 / 设为 AI」；退出多选、切换会话或切换账号都会清空选中集，只在不带关键词的全量拉取时修剪已消失的会话。
 - Host 侧新增三个同源端点 `chat.ai` / `chat.resume` / `chats.batchAi`（`POST /deepfeiyu/*`，Connection 鉴权不变），转发到控制台现成的 `POST /api/chats/{uid}/ai`、`POST /api/chats/{uid}/resume`、`POST /api/chats/batch-ai`；入参白名单校验（uid 非空、`enabled` 必须布尔、`uids` ≤200 且去重）。Python 侧零改动、零新依赖；面板操作不走 Harness 审批，与既有面板发送（`source=human`）同一定位，已写入 `dsh-plugin/README.md` 安全节。
-- 验证状态：`tests/test_dsh_plugin.py` **36 passed**（含用假 ctx 驱动真实路由 handler 的行为测试，覆盖成功转发、参数非法、控制台离线三条路径）；全量 `pytest -q` **1609 passed / 1 skipped / 0 failed**（106.87s，较 2026-11-04 基线 1603 多出的 6 个即本次新增）；`node --check`（经 `test_js_syntax`）通过；`python tools/release_snapshot.py --scan-tracked .` 扫描通过、`git diff --check` 干净。副标题的「AI 判断：<拦截原因>」依赖控制台 `/ws` 事件，属期2；实机安装与面板操作验收见下一条「实机验证」记录。
+- 验证状态：`tests/test_dsh_plugin.py` **36 passed**（含用假 ctx 驱动真实路由 handler 的行为测试，覆盖成功转发、参数非法、控制台离线三条路径）；全量 `pytest -q` **1609 passed / 1 skipped / 0 failed**（106.87s，较 2026-11-04 基线 1603 多出的 6 个即本次新增）；`node --check`（经 `test_js_syntax`）通过；`python tools/release_snapshot.py --scan-tracked .` 扫描通过、`git diff --check` 干净。副标题的「AI 判断：<拦截原因>」依赖控制台 `/ws` 事件，属期2；实机状态见本文件上方 2026-11-05「消息富展示」条目末尾的实机状态行。
 
 ### 2026-11-04 · 群内机器人同行互聊停止（轮数上限 / 无真人参与暂停）
 
