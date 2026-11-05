@@ -576,3 +576,15 @@ def test_client_thread_head_chat_control():
     # 副标题必须由 ai_enabled / paused 推出，而不是写死文案
     assert "selectedChat.paused" in source, "线程头未读取 paused 状态"
     assert "selectedChat.ai_enabled" in source, "线程头未读取 ai_enabled 状态"
+
+
+def test_client_paused_tag_clickable():
+    """列表里的「人工」徽标要能点击就地恢复 AI，且不打开会话（stopPropagation）。"""
+    source = (PKG / "client.js").read_text(encoding="utf-8")
+    assert "人工接管中，点击恢复 AI 自动回复" in source, "缺少接管徽标的 title 提示"
+    assert "dsh-deepfeiyu-is-clickable" in source, "接管徽标未加可点击样式类"
+    assert "event.stopPropagation()" in source, "徽标点击未阻止冒泡，会误触发行点击"
+    # 点击必须走 resumeChat，而不是打开会话
+    assert re.search(r"is-clickable[\s\S]{0,400}?resumeChat\(uid\)", source), (
+        "接管徽标没有接到 resumeChat(uid)"
+    )

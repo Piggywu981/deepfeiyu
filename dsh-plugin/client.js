@@ -126,6 +126,8 @@ window.__ModuleLoader__.load({
 .dsh-deepfeiyu-chat-preview { flex: 1; min-width: 0; overflow: hidden; color: var(--dsw-alias-label-secondary, #61666b); font-size: 12px; line-height: 18px; text-overflow: ellipsis; white-space: nowrap; }
 .dsh-deepfeiyu-tags { display: inline-flex; flex: none; gap: 4px; }
 .dsh-deepfeiyu-tag { flex: none; padding: 0 5px; border: 1px solid var(--dsw-alias-border-l2, #0000001a); border-radius: 4px; color: var(--dsw-alias-label-secondary, #61666b); font-size: 10px; line-height: 16px; }
+.dsh-deepfeiyu-tag.dsh-deepfeiyu-is-clickable { cursor: pointer; }
+.dsh-deepfeiyu-tag.dsh-deepfeiyu-is-clickable:hover { border-color: var(--dsw-alias-state-business-primary, #4176e6); color: var(--dsw-alias-state-business-primary, #4176e6); }
 .dsh-deepfeiyu-tag.dsh-deepfeiyu-is-warn { border-color: var(--dsw-alias-state-warn-primary, #f59e0b); color: var(--dsw-alias-state-warn-primary, #f59e0b); }
 .dsh-deepfeiyu-tag.dsh-deepfeiyu-is-ok { border-color: var(--dsw-alias-state-success-primary, #22c55e); color: var(--dsw-alias-state-success-primary, #22c55e); }
 .dsh-deepfeiyu-unread { display: inline-flex; flex: none; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--dsw-alias-state-error-primary, #ec1313); color: var(--dsw-alias-label-primary-foreground, #fff); font-size: 10px; line-height: 18px; }
@@ -851,7 +853,23 @@ window.__ModuleLoader__.load({
             const unread = Number(item.unread) || 0;
             const tags = [];
             if (item.is_group) tags.push(h('span', { className: 'dsh-deepfeiyu-tag', key: 'group' }, '群'));
-            if (item.paused) tags.push(h('span', { className: 'dsh-deepfeiyu-tag dsh-deepfeiyu-is-warn', key: 'paused' }, '人工'));
+            if (item.paused) tags.push(h('span', {
+              key: 'paused',
+              className: 'dsh-deepfeiyu-tag dsh-deepfeiyu-is-warn dsh-deepfeiyu-is-clickable',
+              role: 'button',
+              tabIndex: 0,
+              title: '人工接管中，点击恢复 AI 自动回复',
+              onClick: (event) => {
+                event.stopPropagation();
+                void resumeChat(uid);
+              },
+              onKeyDown: (event) => {
+                if (event.key !== 'Enter' && event.key !== ' ') return;
+                event.preventDefault();
+                event.stopPropagation();
+                void resumeChat(uid);
+              },
+            }, '人工'));
             if (item.ai_enabled) tags.push(h('span', { className: 'dsh-deepfeiyu-tag dsh-deepfeiyu-is-ok', key: 'ai' }, 'AI'));
             return h('button', {
               key: uid,
