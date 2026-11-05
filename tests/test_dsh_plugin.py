@@ -563,3 +563,16 @@ def test_chat_control_route_behavior():
     for name in ("batch-not-array", "batch-over-limit", "batch-empty-uids", "batch-bad-enabled"):
         assert results[name]["http"] == 400, name
         assert results[name]["code"] == "INVALID_ARGS", name
+
+
+def test_client_thread_head_chat_control():
+    """线程头要能开关会话 AI、显示状态副标题，并在接管中给出恢复入口。"""
+    source = (PKG / "client.js").read_text(encoding="utf-8")
+    for token in ("toggleChatAi", "resumeChat", "setChatFeedbackOnce",
+                  "chat.ai", "chat.resume", "chatBusy", "chatFeedback",
+                  "AI 自动回复", "人工接管中", "AI 已关闭",
+                  "恢复 AI", "thread-actions", "thread-sub", "aria-checked"):
+        assert token in source, f"client.js 缺少 {token}"
+    # 副标题必须由 ai_enabled / paused 推出，而不是写死文案
+    assert "selectedChat.paused" in source, "线程头未读取 paused 状态"
+    assert "selectedChat.ai_enabled" in source, "线程头未读取 ai_enabled 状态"

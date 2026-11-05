@@ -133,6 +133,13 @@ window.__ModuleLoader__.load({
 .dsh-deepfeiyu-thread-empty { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 24px; text-align: center; }
 .dsh-deepfeiyu-empty-title { margin: 0; font-size: 14px; font-weight: 500; }
 .dsh-deepfeiyu-thread-head { display: flex; align-items: center; gap: 8px; padding: 9px 14px; border-bottom: 1px solid var(--dsw-alias-border-l1, #0000000a); }
+.dsh-deepfeiyu-thread-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.dsh-deepfeiyu-thread-title { display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: wrap; }
+.dsh-deepfeiyu-thread-sub { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.dsh-deepfeiyu-thread-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.dsh-deepfeiyu-feedback { font-size: 12px; line-height: 18px; overflow-wrap: anywhere; }
+.dsh-deepfeiyu-feedback.dsh-deepfeiyu-is-error { color: var(--dsw-alias-state-error-primary, #ec1313); }
+.dsh-deepfeiyu-feedback.dsh-deepfeiyu-is-ok { color: var(--dsw-alias-state-success-primary, #22c55e); }
 .dsh-deepfeiyu-thread-name { overflow: hidden; font-size: 13px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
 .dsh-deepfeiyu-messages { display: flex; flex: 1; flex-direction: column; gap: 10px; min-height: 0; padding: 12px 14px; overflow: auto; }
 .dsh-deepfeiyu-msg { display: flex; flex-direction: column; gap: 2px; max-width: 78%; align-self: flex-start; }
@@ -390,6 +397,10 @@ window.__ModuleLoader__.load({
           const [action, setAction] = React.useState('');
           // 可关闭的顶部错误条：动作失败、数据加载失败，不包含「控制台离线」——那用常驻横幅。
           const [error, setError] = React.useState('');
+          // 会话控制：AI 开关 / 恢复接管 / 批量操作共用一把互斥锁与一条行内反馈。
+          const [chatBusy, setChatBusy] = React.useState(false);
+          const [chatFeedback, setChatFeedback] = React.useState(null);
+          const feedbackTimer = React.useRef(null);
 
           const running = Boolean(snapshot && snapshot.running);
           const phase = snapshot && snapshot.phase ? String(snapshot.phase) : 'unknown';
@@ -401,6 +412,19 @@ window.__ModuleLoader__.load({
           function setErrorOnce(message) {
             if (!mounted.current || !message) return;
             setError((previous) => (previous === message ? previous : message));
+          }
+
+          // 行内反馈：错误留到下一次操作才清，成功 4s 后自动消失。
+          function setChatFeedbackOnce(next) {
+            setChatFeedback(next);
+            if (feedbackTimer.current) window.clearTimeout(feedbackTimer.current);
+            feedbackTimer.current = null;
+            if (next && next.tone === 'ok') {
+              feedbackTimer.current = window.setTimeout(() => {
+                feedbackTimer.current = null;
+                setChatFeedback((previous) => (previous && previous.text === next.text ? null : previous));
+              }, 4000);
+            }
           }
 
           // ------------------------------------------------------------ 数据加载
@@ -489,6 +513,10 @@ window.__ModuleLoader__.load({
             return () => {
               mounted.current = false;
               window.clearInterval(timer);
+              if (feedbackTimer.current) {
+                window.clearTimeout(feedbackTimer.current);
+                feedbackTimer.current = null;
+              }
             };
           }, []);
 
@@ -506,6 +534,7 @@ window.__ModuleLoader__.load({
               setChat(null);
               setMessages([]);
               setSendError('');
+              setChatFeedback(null);
             }
             wasRunning.current = running;
           }, [running]);
@@ -551,6 +580,7 @@ window.__ModuleLoader__.load({
             setMessagesLoading(true);
             setDraft('');
             setSendError('');
+            setChatFeedback(null);
           }
 
           async function runConsoleAction(name) {
@@ -580,6 +610,7 @@ window.__ModuleLoader__.load({
               setSelectedUid(null);
               setChat(null);
               setMessages([]);
+              setChatFeedback(null);
               await Promise.all([loadAccounts(), loadChats(keyword), loadStats(), loadState()]);
             } catch (error0) {
               if (mounted.current) setError(errorMessage(error0));
@@ -615,6 +646,51 @@ window.__ModuleLoader__.load({
             if (event.nativeEvent && event.nativeEvent.isComposing) return;
             event.preventDefault();
             void sendMessage();
+          }
+
+          // ------------------------------------------------------------ 会话控制
+          async function toggleChatAi(enabled) {
+            if (!selectedUid || chatBusy || !running) return;
+            setChatBusy(true);
+            setChatFeedback(null);
+            try {
+              await call('chat.ai', { uid: selectedUid, enabled });
+              if (!mounted.current) return;
+              // 线程头读的是 messages.list 返回的 chat，与列表是两份数据，必须同步合并。
+              setChat((previous) => (previous && previous.uid === selectedUid ? { ...previous, ai_enabled: enabled } : previous));
+              setChatFeedbackOnce({ scope: 'thread', tone: 'ok', text: enabled ? '已开启 AI 自动回复' : '已关闭 AI 自动回复' });
+              await loadChats(keyword);
+            } catch (error0) {
+              // 规格 §5.5：行内反馈 + 顶部错误条双通道，不能只在一处显示。
+              if (!mounted.current) return;
+              setError(errorMessage(error0));
+              setChatFeedbackOnce({ scope: 'thread', tone: 'error', text: errorMessage(error0) });
+            } finally {
+              if (mounted.current) setChatBusy(false);
+            }
+          }
+
+          async function resumeChat(uid) {
+            const target = typeof uid === 'string' && uid ? uid : selectedUid;
+            if (!target || chatBusy || !running) return;
+            const scope = target === selectedUid ? 'thread' : 'list';
+            setChatBusy(true);
+            setChatFeedback(null);
+            try {
+              await call('chat.resume', { uid: target });
+              if (!mounted.current) return;
+              if (target === selectedUid) {
+                setChat((previous) => (previous && previous.uid === target ? { ...previous, paused: false } : previous));
+              }
+              setChatFeedbackOnce({ scope, tone: 'ok', text: '已恢复 AI 自动回复' });
+              await loadChats(keyword);
+            } catch (error0) {
+              if (!mounted.current) return;
+              setError(errorMessage(error0));
+              setChatFeedbackOnce({ scope, tone: 'error', text: errorMessage(error0) });
+            } finally {
+              if (mounted.current) setChatBusy(false);
+            }
           }
 
           function openConsole() {
@@ -881,11 +957,48 @@ window.__ModuleLoader__.load({
                     running ? '选中会话后可以查看最近消息并发送微信消息。' : '控制台运行后可查看与发送微信消息。')));
             }
             const rows = messages.map(renderMessage);
+            const aiState = !selectedChat
+              ? ''
+              : !selectedChat.ai_enabled
+                ? 'AI 已关闭'
+                : selectedChat.paused
+                  ? '人工接管中'
+                  : 'AI 自动回复';
+            const kindLabel = selectedChat ? (selectedChat.is_group ? '群聊' : '私聊') : '';
             return h('section', { className: 'dsh-deepfeiyu-thread' },
               h('div', { className: 'dsh-deepfeiyu-thread-head' },
-                h('span', { className: 'dsh-deepfeiyu-thread-name' }, selectedName || String(selectedUid)),
-                selectedChat && selectedChat.is_group ? h('span', { className: 'dsh-deepfeiyu-tag' }, '群聊') : null,
-                h('span', { className: 'dsh-deepfeiyu-hint' }, messages.length ? '最近 ' + messages.length + ' 条' : '')),
+                h('div', { className: 'dsh-deepfeiyu-thread-main' },
+                  h('div', { className: 'dsh-deepfeiyu-thread-title' },
+                    h('span', { className: 'dsh-deepfeiyu-thread-name' }, selectedName || String(selectedUid)),
+                    kindLabel ? h('span', { className: 'dsh-deepfeiyu-tag' }, kindLabel) : null,
+                    selectedChat && selectedChat.paused
+                      ? h('span', { className: 'dsh-deepfeiyu-tag dsh-deepfeiyu-is-warn' }, '人工接管中')
+                      : null),
+                  h('div', { className: 'dsh-deepfeiyu-thread-sub' },
+                    aiState ? h('span', { className: 'dsh-deepfeiyu-hint' }, aiState) : null,
+                    h('span', { className: 'dsh-deepfeiyu-hint' }, messages.length ? '最近 ' + messages.length + ' 条' : ''),
+                    chatFeedback && chatFeedback.scope === 'thread'
+                      ? h('span', {
+                          className: 'dsh-deepfeiyu-feedback dsh-deepfeiyu-is-' + (chatFeedback.tone === 'ok' ? 'ok' : 'error'),
+                          role: chatFeedback.tone === 'ok' ? 'status' : 'alert',
+                        }, chatFeedback.text)
+                      : null)),
+                h('div', { className: 'dsh-deepfeiyu-thread-actions' },
+                  selectedChat && selectedChat.paused
+                    ? actionButton('恢复 AI', () => { void resumeChat(selectedUid); }, {
+                        disabled: !running || chatBusy,
+                        title: '恢复该会话的 AI 自动回复',
+                      })
+                    : null,
+                  h('button', {
+                    type: 'button',
+                    role: 'switch',
+                    'aria-checked': Boolean(selectedChat && selectedChat.ai_enabled),
+                    className: 'dsh-deepfeiyu-btn' + (selectedChat && selectedChat.ai_enabled ? ' dsh-deepfeiyu-btn-on' : ''),
+                    disabled: !running || chatBusy || !selectedChat,
+                    title: '该会话是否由 AI 自动回复',
+                    onClick: () => { void toggleChatAi(!(selectedChat && selectedChat.ai_enabled)); },
+                  }, selectedChat && selectedChat.ai_enabled ? 'AI 开' : 'AI 关'))),
               h('div', { className: 'dsh-deepfeiyu-messages', ref: listRef, onScroll: handleMessagesScroll },
                 rows.length
                   ? rows
