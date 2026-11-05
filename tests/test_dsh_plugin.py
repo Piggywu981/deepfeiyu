@@ -367,3 +367,199 @@ def test_js_syntax():
         assert proc.returncode == 0, (
             f"{f.relative_to(ROOT)} 语法检查失败：{(proc.stderr or proc.stdout).strip()}"
         )
+
+
+# 期1 会话控制：用假 ctx 驱动真实的 registerRoute handler，覆盖转发、校验与错误分类。
+ROUTE_HARNESS = r"""
+import { pathToFileURL } from 'node:url'
+const base = pathToFileURL(process.cwd() + '/').href
+const { registerRoute } = await import(base + 'lib/route.js')
+const { ConsoleDownError } = await import(base + 'lib/ops.js')
+
+const calls = []
+let failNext = false
+let handler = null
+const ctx = {
+  connection: { requestRejection: () => 0 },
+  webServer: {
+    register: (route) => {
+      handler = route.handler
+      return () => {}
+    },
+  },
+  effect: () => {},
+  logger: { debug: () => {} },
+  get: () => undefined,
+}
+const api = {
+  chatAi: async (uid, enabled) => {
+    if (failNext) {
+      failNext = false
+      throw new ConsoleDownError('无法连接 Deep肥鱼控制台 http://127.0.0.1:8765（ECONNREFUSED）')
+    }
+    calls.push(['chatAi', uid, enabled])
+    return { ok: true, ai_enabled: enabled }
+  },
+  chatResume: async (uid) => {
+    calls.push(['chatResume', uid])
+    return { ok: true }
+  },
+  chatsBatchAi: async (uids, enabled) => {
+    calls.push(['chatsBatchAi', uids, enabled])
+    return { ok: true, changed: uids.length, ai_enabled: enabled }
+  },
+}
+registerRoute({
+  ctx,
+  config: {},
+  api,
+  state: () => ({}),
+  snapshot: () => ({}),
+  supervisor: { start() {}, stop() {}, restart() {} },
+  sendGate: undefined,
+})
+
+async function post(endpoint, payload) {
+  const chunks = [Buffer.from(JSON.stringify(payload))]
+  const req = {
+    method: 'POST',
+    url: '/deepfeiyu/' + endpoint,
+    headers: {},
+    async *[Symbol.asyncIterator]() {
+      for (const chunk of chunks) yield chunk
+    },
+  }
+  let status = 0
+  let body = ''
+  const res = {
+    writeHead(code) { status = code },
+    end(text) { body = text },
+  }
+  await handler(req, res)
+  return { status, body: body ? JSON.parse(body) : null }
+}
+
+const out = []
+async function step(name, fn) {
+  const before = calls.length
+  try {
+    const extra = (await fn()) || {}
+    out.push({ name, status: 'ok', calls: calls.slice(before), ...extra })
+  } catch (error) {
+    out.push({ name, status: 'threw', error: String((error && error.stack) || error) })
+  }
+}
+
+await step('chat.ai-ok', async () => {
+  const r = await post('chat.ai', { uid: '  acc_default:wxid_a  ', enabled: true })
+  return { http: r.status, value: r.body && r.body.value, code: r.body && r.body.error && r.body.error.code }
+})
+await step('chat.ai-missing-uid', async () => {
+  const r = await post('chat.ai', { uid: '   ', enabled: true })
+  return { http: r.status, code: r.body && r.body.error && r.body.error.code }
+})
+await step('chat.ai-bad-enabled', async () => {
+  const r = await post('chat.ai', { uid: 'acc_default:wxid_a', enabled: 'yes' })
+  return { http: r.status, code: r.body && r.body.error && r.body.error.code }
+})
+await step('chat.ai-console-down', async () => {
+  failNext = true
+  const r = await post('chat.ai', { uid: 'acc_default:wxid_a', enabled: false })
+  return { http: r.status, code: r.body && r.body.error && r.body.error.code }
+})
+await step('chat.resume-ok', async () => {
+  const r = await post('chat.resume', { uid: 'acc_default:wxid_b' })
+  return { http: r.status, value: r.body && r.body.value }
+})
+await step('chat.resume-missing-uid', async () => {
+  const r = await post('chat.resume', {})
+  return { http: r.status, code: r.body && r.body.error && r.body.error.code }
+})
+await step('batch-ok-dedupe', async () => {
+  const r = await post('chats.batchAi', { uids: ['a', ' a ', '', 'b', 'a'], enabled: false })
+  return { http: r.status, value: r.body && r.body.value }
+})
+await step('batch-not-array', async () => {
+  const r = await post('chats.batchAi', { uids: 'a', enabled: true })
+  return { http: r.status, code: r.body && r.body.error && r.body.error.code }
+})
+await step('batch-over-limit', async () => {
+  const uids = Array.from({ length: 201 }, (_, i) => 'u' + i)
+  const r = await post('chats.batchAi', { uids, enabled: true })
+  return { http: r.status, code: r.body && r.body.error && r.body.error.code }
+})
+await step('batch-empty-uids', async () => {
+  const r = await post('chats.batchAi', { uids: ['', '  '], enabled: true })
+  return { http: r.status, code: r.body && r.body.error && r.body.error.code }
+})
+await step('batch-bad-enabled', async () => {
+  const r = await post('chats.batchAi', { uids: ['a'], enabled: 'true' })
+  return { http: r.status, code: r.body && r.body.error && r.body.error.code }
+})
+
+console.log(JSON.stringify(out))
+"""
+
+
+def test_chat_control_routes_registered():
+    """期1：三个会话控制端点必须在 Host 路由与 ops 层都登记，且入参有白名单校验。"""
+    route = (PKG / "lib" / "route.js").read_text(encoding="utf-8")
+    ops = (PKG / "lib" / "ops.js").read_text(encoding="utf-8")
+    for endpoint in ("chat.ai", "chat.resume", "chats.batchAi"):
+        assert f"'{endpoint}'" in route, f"lib/route.js 缺少路由 {endpoint}"
+    for method in ("chatAi", "chatResume", "chatsBatchAi"):
+        assert method in ops, f"lib/ops.js 缺少 {method}"
+    for fragment in ("encodeURIComponent(uid)}/ai", "encodeURIComponent(uid)}/resume",
+                     "'/api/chats/batch-ai'", "method: 'POST'",
+                     "body: { enabled }", "body: { uids, enabled }"):
+        assert fragment in ops, f"lib/ops.js 缺少片段 {fragment}"
+    for message in ("缺少 uid", "enabled 必须是布尔值", "uids 必须是数组",
+                    "uids 超过 200 上限", "uids 不能为空"):
+        assert message in route, f"route.js 缺少入参校验文案 {message}"
+
+
+def test_chat_control_route_behavior():
+    """路由行为：白名单转发、参数校验、去重截断与控制台离线错误分类。"""
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("本机没有 node，无法跑路由行为测试（已在 PR 中如实说明）")
+    proc = subprocess.run(
+        [node, "--input-type=module", "-e", ROUTE_HARNESS],
+        cwd=str(PKG),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=60,
+    )
+    assert proc.returncode == 0, (proc.stderr or proc.stdout)
+    results = {item["name"]: item for item in json.loads(proc.stdout)}
+    for name, item in results.items():
+        assert item["status"] == "ok", f"{name} 抛异常：{item.get('error')}"
+
+    ok = results["chat.ai-ok"]
+    assert ok["http"] == 200, ok
+    assert ok["calls"] == [["chatAi", "acc_default:wxid_a", True]], ok
+    assert ok["value"] == {"uid": "acc_default:wxid_a", "ai_enabled": True}, ok
+
+    missing = results["chat.ai-missing-uid"]
+    assert missing["http"] == 400 and missing["code"] == "INVALID_ARGS" and missing["calls"] == [], missing
+    bad_enabled = results["chat.ai-bad-enabled"]
+    assert bad_enabled["http"] == 400 and bad_enabled["code"] == "INVALID_ARGS" and bad_enabled["calls"] == [], bad_enabled
+
+    down = results["chat.ai-console-down"]
+    assert down["http"] == 200 and down["code"] == "CONSOLE_DOWN", down
+
+    resume = results["chat.resume-ok"]
+    assert resume["http"] == 200 and resume["calls"] == [["chatResume", "acc_default:wxid_b"]], resume
+    assert resume["value"] == {"uid": "acc_default:wxid_b", "paused": False}, resume
+    no_uid = results["chat.resume-missing-uid"]
+    assert no_uid["http"] == 400 and no_uid["code"] == "INVALID_ARGS", no_uid
+
+    batch = results["batch-ok-dedupe"]
+    assert batch["http"] == 200, batch
+    assert batch["calls"] == [["chatsBatchAi", ["a", "b"], False]], batch
+    assert batch["value"] == {"ok": True, "changed": 2, "ai_enabled": False}, batch
+    for name in ("batch-not-array", "batch-over-limit", "batch-empty-uids", "batch-bad-enabled"):
+        assert results[name]["http"] == 400, name
+        assert results[name]["code"] == "INVALID_ARGS", name

@@ -109,6 +109,19 @@ export function createConsoleApi({ getConfig, getToken }) {
       body: { text, source },
       timeoutMs: getConfig().sendTimeoutMs,
     }),
+    // 会话控制：转发控制台现成的 AI 开关 / 恢复接管 / 批量操作，只发白名单字段。
+    chatAi: (uid, enabled) => call(`/api/chats/${encodeURIComponent(uid)}/ai`, {
+      method: 'POST',
+      body: { enabled },
+    }),
+    chatResume: (uid) => call(`/api/chats/${encodeURIComponent(uid)}/resume`, {
+      method: 'POST',
+      body: {},
+    }),
+    chatsBatchAi: (uids, enabled) => call('/api/chats/batch-ai', {
+      method: 'POST',
+      body: { uids, enabled },
+    }),
     // 设置页 P1：模型/人格/更新转发控制台既有 API；写入走窄补丁，响应由控制台校验。
     settingsGet: () => call('/api/settings'),
     settingsPut: (patch) => call('/api/settings', { method: 'PUT', body: patch, timeoutMs: 15000 }),

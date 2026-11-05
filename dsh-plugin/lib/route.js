@@ -74,6 +74,30 @@ export function registerRoute({ ctx, config, api, state, snapshot, supervisor, s
       const message = await api.send(uid, text, 'human')
       return { message }
     },
+    // 会话控制：转发控制台现成的 AI 开关 / 恢复接管 / 批量操作，只发白名单字段。
+    'chat.ai': async (payload) => {
+      const uid = typeof payload.uid === 'string' ? payload.uid.trim() : ''
+      const enabled = payload.enabled
+      if (!uid) throw Object.assign(new Error('缺少 uid'), { code: 'INVALID_ARGS' })
+      if (typeof enabled !== 'boolean') throw Object.assign(new Error('enabled 必须是布尔值'), { code: 'INVALID_ARGS' })
+      await api.chatAi(uid, enabled)
+      return { uid, ai_enabled: enabled }
+    },
+    'chat.resume': async (payload) => {
+      const uid = typeof payload.uid === 'string' ? payload.uid.trim() : ''
+      if (!uid) throw Object.assign(new Error('缺少 uid'), { code: 'INVALID_ARGS' })
+      await api.chatResume(uid)
+      return { uid, paused: false }
+    },
+    'chats.batchAi': async (payload) => {
+      const enabled = payload.enabled
+      if (typeof enabled !== 'boolean') throw Object.assign(new Error('enabled 必须是布尔值'), { code: 'INVALID_ARGS' })
+      if (!Array.isArray(payload.uids)) throw Object.assign(new Error('uids 必须是数组'), { code: 'INVALID_ARGS' })
+      if (payload.uids.length > 200) throw Object.assign(new Error('uids 超过 200 上限'), { code: 'INVALID_ARGS' })
+      const uids = [...new Set(payload.uids.map((value) => (typeof value === 'string' ? value.trim() : '')).filter(Boolean))]
+      if (!uids.length) throw Object.assign(new Error('uids 不能为空'), { code: 'INVALID_ARGS' })
+      return await api.chatsBatchAi(uids, enabled)
+    },
     stats: async () => ({ stats: await api.stats() }),
     capabilities: async () => ({ capabilities: await api.capabilities() }),
     // 设置页依赖管理：直接透传控制台 body，client 的 call() 会解包 {ok:true,value}。
