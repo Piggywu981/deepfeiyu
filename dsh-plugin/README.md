@@ -2,7 +2,7 @@
 
 在 DeepSeek Harness 里运行与操作 **Deep肥鱼微信智能体**（本仓库的 Python 控制台）：
 
-- Harness 左侧栏新增「Deep肥鱼」图标，中央面板提供控制台状态、启停、账号切换、会话列表、消息记录与发送；
+- Harness 左侧栏新增「Deep肥鱼」图标，中央面板提供控制台状态、启停、账号切换、会话列表（「接管中」徽标点击即恢复 AI、多选批量设为人工/AI）、消息记录与发送、线程头会话 AI 开关与状态副标题；
 - Harness「设置 → Deep肥鱼」新增依赖环境页：查看控制台各可选功能的 Python 依赖状态并一键安装，安装过程显示实时日志；
 - 同一设置页还有「关联 DSH 插件」：可一键安装上游的桌宠（`dsh-dafeiyu`）与心情（`dsh-feiyu-mood`）DSH 插件（npm 最新版，白名单 + 二次确认；它们由 Harness 会话驱动，与控制台里的同名功能是两套）；
 - 「打开完整控制台」会在 Harness 右侧栏的官方浏览器标签页里打开完整控制台（`http://127.0.0.1:8765`）；
@@ -17,7 +17,7 @@
 | `lib/supervisor.js` | 控制台进程监督（拉起/健康轮询/停止） |
 | `lib/approval.js` | Agent 发送审批（跟随 Harness 权限模式） |
 | `lib/tools.js` | 8 个 `deepfeiyu_*` 工具 |
-| `lib/route.js` | 面板数据路由：`POST /deepfeiyu/<endpoint>`（Connection 鉴权），含 `deps.*` 与 `dshPlugins.*` |
+| `lib/route.js` | 面板数据路由：`POST /deepfeiyu/<endpoint>`（Connection 鉴权），含 `chat.ai` / `chat.resume` / `chats.batchAi`、`deps.*` 与 `dshPlugins.*` |
 | `lib/dsh-plugins.js` | 「关联 DSH 插件」白名单安装器：只调 Host 的 `pluginManager.installBundle`，包名与选项写死 |
 | `client.js` | Client 半：`sidebar.panellist` 图标 + `main` 中央面板 + `settings.section` 设置页 |
 
@@ -139,6 +139,7 @@ Host 侧新增 8 个同源代理端点：`settings.get / settings.put / settings
 
 - **不削弱任何服务端闸门**：所有发送仍走 Python 控制台的既有 `send_text`（含驱动在线、绑定身份确认、`send.forbidden_wxids` 禁发名单、写操作本机限制、访问令牌校验）。
 - **Agent 发送跟随 Harness 权限模式**：会话审批策略为 `ask`（逐步审批 / Auto 自动审批）时，每次发送先走 `ctx.approval.request`，仅 `allowed-once` 才发送；策略为 `never`（完全批准 / headless）时不弹审批直接发送。无法判定时 fail closed 为 `ask`。
+- **面板会话操作不走 Harness 审批**：会话 AI 开关、恢复接管与多选批量等价于人在控制台里点一下（与面板发送 `source=human` 同一定位），只受控制台访问令牌校验与本机来源限制约束；破坏性低于发消息，随时可改回。
 - **agent 发送走节流队列**：工具调用以 `source="dsh"` 走控制台既有的发送节流（全局最小间隔 + 会话冷却），比人工发送更保守；面板发送等价人工点击（`source="human"`）。
 - **令牌不外泄**：令牌只在 Host 进程内用于调用 `127.0.0.1`，不写日志、不返回给 Client、不进入工具结果。
 - **面板数据路由有鉴权**：`/deepfeiyu/*` 先调用 `ctx.connection.requestRejection` 复用 DSH 的浏览器 Cookie 与 Host/Origin 校验，未通过直接 401/403。

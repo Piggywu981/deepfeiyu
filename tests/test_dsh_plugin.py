@@ -604,3 +604,13 @@ def test_client_multi_select_bulk():
     )
     # 搜索结果是子集，不得拿子集修剪选中集：只在无关键词时修剪
     assert "if (!keywordValue)" in source, "loadChats 未按是否有关键词区分选中集修剪"
+
+
+def test_readme_documents_chat_control():
+    """期1 会话控制必须在插件 README 与使用说明里可见，并写明不走审批的定位。"""
+    readme = (PKG / "README.md").read_text(encoding="utf-8")
+    for token in ("多选", "恢复 AI", "AI 开关", "chat.ai", "不走 Harness 审批"):
+        assert token in readme, f"dsh-plugin/README.md 缺少 {token}"
+    usage = (ROOT / "docs" / "使用说明.md").read_text(encoding="utf-8")
+    for token in ("多选", "恢复 AI", "AI 开关"):
+        assert token in usage, f"docs/使用说明.md 缺少 {token}"

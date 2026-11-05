@@ -6,6 +6,13 @@
 
 ## [未发布]
 
+### 2026-11-05 · DSH 面板会话控制（期1：AI 开关 / 恢复接管 / 多选批量）
+
+- 面板线程头新增会话 AI 开关、状态副标题（群聊/私聊 · AI 自动回复/人工接管中/AI 已关闭）、「人工接管中」徽标与「恢复 AI」按钮；会话列表的「人工」徽标改为可点击，点击即恢复该会话的 AI 自动回复且不打开会话。
+- 会话列表新增「多选」：多选/退出多选、全选（作用于当前搜索结果）、已选计数、批量「设为人工 / 设为 AI」；退出多选、切换会话或切换账号都会清空选中集，只在不带关键词的全量拉取时修剪已消失的会话。
+- Host 侧新增三个同源端点 `chat.ai` / `chat.resume` / `chats.batchAi`（`POST /deepfeiyu/*`，Connection 鉴权不变），转发到控制台现成的 `POST /api/chats/{uid}/ai`、`POST /api/chats/{uid}/resume`、`POST /api/chats/batch-ai`；入参白名单校验（uid 非空、`enabled` 必须布尔、`uids` ≤200 且去重）。Python 侧零改动、零新依赖；面板操作不走 Harness 审批，与既有面板发送（`source=human`）同一定位，已写入 `dsh-plugin/README.md` 安全节。
+- 验证状态：`tests/test_dsh_plugin.py` **36 passed**（含用假 ctx 驱动真实路由 handler 的行为测试，覆盖成功转发、参数非法、控制台离线三条路径）；全量 `pytest -q` **1609 passed / 1 skipped / 0 failed**（106.87s，较 2026-11-04 基线 1603 多出的 6 个即本次新增）；`node --check`（经 `test_js_syntax`）通过；`python tools/release_snapshot.py --scan-tracked .` 扫描通过、`git diff --check` 干净。副标题的「AI 判断：<拦截原因>」依赖控制台 `/ws` 事件，属期2；实机安装与面板操作验收见下一条「实机验证」记录。
+
 ### 2026-11-04 · 群内机器人同行互聊停止（轮数上限 / 无真人参与暂停）
 
 - 新增「机器人同行互聊停止」：两个以上机器人号同群时不再无限互聊。`auto` 段新增 `bot_peers`（对方机器人 wxid 名单，留空 = 机制关闭）、`bot_chat_max_rounds`（默认 8，到第 N 条自然收尾）、`bot_chat_idle_stop_min`（默认 15 分钟）；新模块 `app/botloop.py` 按群聊维护 `rounds`/`last_human_ts`（kv `botloop:{uid}` 持久化，无数据库迁移）。
