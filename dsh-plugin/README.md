@@ -111,11 +111,11 @@ Host 侧新增 8 个同源代理端点：`settings.get / settings.put / settings
 | 入口 | npm 包 | 说明 |
 |---|---|---|
 | 桌宠（Harness 会话版） | `dsh-dafeiyu` | 由 Harness 会话事件驱动，自带原生 helper 与素材（解包约 242MB）；与控制台里由微信状态驱动的桌宠是两套 |
-| 心情（Harness 会话版） | `dsh-feiyu-mood` | 每轮 Harness 会话后判断心情，挂饰与设置都在 DSH 侧；不读微信，也不注入控制台心情 |
+| 心情（Harness 会话版） | `dsh-feiyu-mood` | 每轮 Harness 会话后判断心情，挂饰与设置都在 DSH 侧；不读微信，也不注入控制台心情，与融合互不同步（没有导入心情的接口） |
 | 余额小鲸鱼（Harness 版） | `dsh-whale-widget` | Harness 右下角的 DeepSeek 余额挂件（今日用量、峰谷、气泡与音效，约 7MB）；与控制台里的余额挂件是两套。代码 MIT，素材/图标按上游「as-is 仅用于运行本插件」分发 |
 
 - 安装的是 npm **最新版**（Host 传包名给 `pluginManager.installBundle`，`saveExact` 把实际版本写回 profile）；已有版本时不自动"卸载再装"，更新请到 DSH 自己的插件页；
-- 前端只能传白名单 `id`，包名与安装选项写在 `lib/dsh-plugins.js`；点按钮前会弹一次确认，说明会执行第三方代码；
+- 前端只能传白名单 `id`，包名与安装选项写在 `lib/dsh-plugins.js`；点按钮前会弹一次确认，说明会执行第三方代码——装心情独立版时还会额外说明它与融合互不同步；该插件已启用时「关联 DSH 插件」区块会常驻一条提示；
 - 安装是 Host 进程里的后台任务，设置页轮询进度并显示 `application` 结论（`applied` 刷新页面生效，`restart-required` 需重启 Harness）；
 - 只依赖 Host 的 `pluginManager` 服务：服务缺失时该区块显示"没有插件管理服务"，面板其余功能不受影响。
 
@@ -132,7 +132,7 @@ Host 侧新增 8 个同源代理端点：`settings.get / settings.put / settings
 - 三个开关：DSH 判断心情 / 宠物反映 Harness / 允许 Harness 来历进微信（默认开）。
 - 隐私：Harness 原文**不出 Host**，只传判断结果与 ≤60 字理由；微信来源的理由不进 Harness；群聊里的 Harness 来历也降级为"只说心情"。
 - 控制台停机时判断与宠物事件直接丢弃、记日志，不阻塞 Harness 对话；插件卸载会清理监听、定时器与提示词上下文。
-- 注意：「设置页 → 关联 DSH 插件」里的 `dsh-dafeiyu` / `dsh-feiyu-mood` / `dsh-whale-widget` 都是**独立版**，不与控制台共享状态；心情/桌宠开了融合就别再装这两个，否则会出现两套心情/两只宠物。
+- 注意：「设置页 → 关联 DSH 插件」里的 `dsh-dafeiyu` / `dsh-feiyu-mood` / `dsh-whale-widget` 都是**独立版**，不与控制台共享状态；心情/桌宠开了融合就别再装这两个，否则会出现两套心情/两只宠物，且两套心情互不同步（独立版没有导入接口，无法同步）。
 - 余额小鲸鱼**故意不做融合**：两侧挂件前端都是上游原样文件，只认各自宿主的 `/dsh-whale/*`，DSH 侧宿主实现在第三方包内部、我们无法改。同一 DeepSeek 账号下余额本就同源，只有用量分开——控制台那只记微信回合，DSH 那只记 Harness 会话。
 
 ## 安全

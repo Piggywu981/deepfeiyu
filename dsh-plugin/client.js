@@ -190,6 +190,7 @@ window.__ModuleLoader__.load({
 .dsh-deepfeiyu-dep-desc { margin: 0; color: var(--dsw-alias-label-secondary, #61666b); font-size: 12px; line-height: 18px; overflow-wrap: anywhere; }
 .dsh-deepfeiyu-dep-note { margin: 0; color: var(--dsw-alias-label-tertiary, #81858c); font-size: 12px; line-height: 18px; overflow-wrap: anywhere; }
 .dsh-deepfeiyu-dep-missing { margin: 0; color: var(--dsw-alias-state-warn-primary, #f59e0b); font-size: 12px; line-height: 18px; overflow-wrap: anywhere; }
+.dsh-deepfeiyu-dep-warn { margin: 0; color: var(--dsw-alias-state-warn-primary, #f59e0b); font-size: 12px; line-height: 18px; overflow-wrap: anywhere; }
 .dsh-deepfeiyu-dep-failure { margin: 0; color: var(--dsw-alias-state-error-primary, #ec1313); font-size: 12px; line-height: 18px; overflow-wrap: anywhere; }
 .dsh-deepfeiyu-dep-error { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 8px 12px; border: 1px solid var(--dsw-alias-state-error-primary, #ec1313); border-radius: 10px; background: var(--dsw-alias-interactive-bg-hover-danger, #ec13130d); color: var(--dsw-alias-state-error-primary, #ec1313); font-size: 12px; }
 .dsh-deepfeiyu-dep-actions { display: flex; flex: none; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: auto; }
@@ -1540,11 +1541,16 @@ window.__ModuleLoader__.load({
             if (!id || dshInstallPending || (dshPlugins && dshPlugins.installing)) return;
             const name = plugin && plugin.name ? String(plugin.name) : id;
             const size = plugin && plugin.sizeHint ? String(plugin.sizeHint) : '较大体积';
+            // 独立版心情与融合互不同步：装它之前必须把这点说清楚，别让人以为装完就同步了。
+            const moodNotice = id === 'feiyu-mood'
+              ? '\n\n注意：这是「独立版」心情，自己判断、自己保存，不会与控制台或「心情与桌宠（融合）」同步；两者同时启用会出现两套心情数值。'
+              : '';
             // 安装 bundle = 下载第三方代码在 Host 进程全权限运行：必须让用户明确点过确认。
             const confirmed = typeof window === 'undefined' || typeof window.confirm !== 'function'
               ? true
               : window.confirm('将安装第三方 DSH 插件 ' + name + '（npm 最新版，' + size + '）。\n\n'
-                + '它会在 Harness 内执行第三方代码，且由 Harness 会话驱动，与控制台里的功能是两套。\n\n确定继续？');
+                + '它会在 Harness 内执行第三方代码，且由 Harness 会话驱动，与控制台里的功能是两套。'
+                + moodNotice + '\n\n确定继续？');
             if (!confirmed) return;
             setDshInstallPending(id);
             setDshPluginsError('');
@@ -2184,6 +2190,13 @@ window.__ModuleLoader__.load({
               const found = plugins.find((item) => item && String(item.id) === String(id));
               return found && found.label ? String(found.label) : String(id || '');
             };
+            // 独立版心情一旦处于启用状态就常驻提示：它与融合互不同步，同时开着是两套数值。
+            const moodRow = plugins.find((item) => item && String(item.id) === 'feiyu-mood');
+            const standaloneMoodOn = Boolean(moodRow && moodRow.enabled);
+            const moodConflict = standaloneMoodOn
+              ? h('p', { className: 'dsh-deepfeiyu-dep-warn', role: 'alert' },
+                '⚠ 独立版心情 dsh-feiyu-mood 已启用：它与「心情与桌宠（融合）」互不同步，也不会与控制台同步，同时开着会出现两套心情数值。要一份心情请到 DSH 插件页停用它，只保留融合。')
+              : null;
             let lastLine = null;
             if (last) {
               const text = last.ok
@@ -2199,7 +2212,7 @@ window.__ModuleLoader__.load({
                 h('span', { className: 'dsh-deepfeiyu-dep-terminal-title' }, '关联 DSH 插件'),
                 settingsButton('刷新', () => { void loadDshPlugins(); }, { title: '刷新 DSH 插件安装状态' })),
               h('p', { className: 'dsh-deepfeiyu-dep-note' },
-                '这两个上游插件由 Harness 会话驱动，与控制台里的桌宠/心情是两套；安装会在 Harness 内执行第三方代码，装的是 npm 最新版。'),
+                '这两个上游插件由 Harness 会话驱动，与控制台里的桌宠/心情是两套；安装会在 Harness 内执行第三方代码，装的是 npm 最新版。其中独立版心情与「心情与桌宠（融合）」互不同步，同时启用会出现两套心情数值。'),
               dshPluginsError ? h('p', { className: 'dsh-deepfeiyu-dep-failure', role: 'alert' }, dshPluginsError) : null,
               dshPlugins && dshPlugins.available === false
                 ? h('p', { className: 'dsh-deepfeiyu-dep-note' }, dshPlugins.error || '当前 Harness 没有插件管理服务')
@@ -2209,6 +2222,7 @@ window.__ModuleLoader__.load({
                 : (dshPluginsError || (dshPlugins && dshPlugins.available === false)
                   ? null
                   : h('p', { className: 'dsh-deepfeiyu-hint' }, '正在读取 DSH 插件状态…')),
+              moodConflict,
               lastLine);
           }
 
@@ -2228,7 +2242,7 @@ window.__ModuleLoader__.load({
                 h('span', { className: 'dsh-deepfeiyu-dep-terminal-title' }, '心情与桌宠（融合）'),
                 settingsButton('刷新', () => { void loadFusion(); }, { title: '刷新融合状态' })),
               h('p', { className: 'dsh-deepfeiyu-dep-note' },
-                '绑定账号后，Harness 与微信共享同一份心情；桌宠由控制台进程渲染，这里只控制与查看。'),
+                '绑定账号后，Harness 与微信共享同一份心情；桌宠由控制台进程渲染，这里只控制与查看。独立版 dsh-feiyu-mood 不会与这里同步。'),
               fusionError ? h('p', { className: 'dsh-deepfeiyu-dep-failure', role: 'alert' }, fusionError) : null,
               accounts.length
                 ? h('div', { className: 'dsh-deepfeiyu-dep-row' },

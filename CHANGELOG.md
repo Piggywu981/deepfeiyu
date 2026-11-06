@@ -6,6 +6,15 @@
 
 ## [未发布]
 
+### 2026-11-06 · 独立版心情与融合「互不同步」的告知
+
+- 背景：`dsh-feiyu-mood`（上游独立版，由「设置 → 依赖与融合 → 关联 DSH 插件」安装/启用）与本插件的「心情与桌宠（融合）」是两套心情——独立版自己判断、自己保存在自己的 `state.json`，只暴露只读 `/dsh-feiyu-mood/state` 与改配置/重置接口，**没有导入心情的接口**，因此不可能与控制台或融合同步；两者同时启用会看到两个不同数值的心情与挂饰。
+- `docs/使用说明.md`：第 16 节「关联 DSH 插件」「心情与桌宠（融合）」两条写明独立版不会同步、同时启用是两套数值；第 16.4 新增排查「DSH 里出现两套心情数值」（停用独立版、只保留融合）；第 5.5 新增「DSH 里的心情和这里对不上」，指回第 16 节。`dsh-plugin/README.md` 同步表格行、二次确认说明与融合注意事项。
+- `dsh-plugin/client.js`：安装/启用前的 `window.confirm` 追加仅针对 `feiyu-mood` 的不同步警告；「关联 DSH 插件」区块在该插件**已启用**时常驻一条 `dsh-deepfeiyu-dep-warn` 提示（已装但未启用不提示，避免误报）；该区块与融合区块的说明文案各补一句；新增同色 warning 样式类。
+- `dsh-plugin/lib/dsh-plugins.js`：白名单里 `dsh-feiyu-mood` 的 `description` / `note` 直接写明与融合互不同步（随行内展示）。
+- 新增 `tests/test_dsh_plugin.py::test_standalone_mood_conflict_is_told_to_user`，覆盖安装确认、启用常驻提示与三处文档。
+- 验证状态：`tests/test_dsh_plugin.py` **42 passed**（含 `node --check` 语法检查）；定向 `tests/test_dsh_plugin.py tests/test_usage_doc.py tests/test_readme_claims.py` **60 passed**；全量 `pytest -q` **1615 passed / 1 skipped / 0 failed**（85.20s，较 2026-11-05 终值 1614 多出的 1 个即本次新增）；`python tools/release_snapshot.py --scan-tracked .` 通过、`git diff --check` 干净。设置页提示的浏览器实机效果未验收（需重启/热重载插件后在 DSH 设置页观察），待人工确认后补记。
+
 ### 2026-11-05 · DSH 面板消息富展示（期3：图片 / 表情 / 引用对齐控制台）
 
 - 消息流按控制台同款分支渲染：图片内联缩略图（点击新标签打开原图，失败回退 `[图片]`）、表情动图（悬停 ★收藏 / ⬇下载，已收藏状态来自表情墙）、引用消息渲染为引用块（昵称 + 摘要，被引图片/表情直接显示原图，正文尾部不再出现 `[引用…]` 文本）。

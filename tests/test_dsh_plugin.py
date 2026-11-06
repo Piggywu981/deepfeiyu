@@ -188,6 +188,25 @@ def test_client_dsh_plugin_section():
     assert "第三方代码" in source, "安装确认必须说明会执行第三方代码"
 
 
+def test_standalone_mood_conflict_is_told_to_user():
+    """独立版 dsh-feiyu-mood 与融合互不同步：安装确认、启用提示与文档都必须告知。"""
+    client = (PKG / "client.js").read_text(encoding="utf-8")
+    # 装它之前的二次确认要按 id 单独说明不同步
+    assert "id === 'feiyu-mood'" in client, "安装确认未按插件 id 区分心情警告"
+    assert "不会与控制台或「心情与桌宠（融合）」同步" in client, "安装确认缺少不同步说明"
+    # 已启用时常驻提示（区分「装了没启用」：没启用就没有冲突）
+    assert "dsh-deepfeiyu-dep-warn" in client, "缺少独立版心情启用后的提示样式"
+    assert "互不同步，也不会与控制台同步" in client, "缺少独立版心情已启用的常驻提示"
+    assert "standaloneMoodOn" in client, "启用状态没有参与提示判定"
+    defs = (PKG / "lib" / "dsh-plugins.js").read_text(encoding="utf-8")
+    assert "与「心情与桌宠（融合）」互不同步" in defs, "白名单定义未说明与融合不同步"
+    usage = (ROOT / "docs" / "使用说明.md").read_text(encoding="utf-8")
+    for token in ("`dsh-feiyu-mood` 是独立版", "互不同步", "DSH 里出现两套心情数值"):
+        assert token in usage, f"docs/使用说明.md 缺少 {token}"
+    readme = (PKG / "README.md").read_text(encoding="utf-8")
+    assert "两套心情互不同步" in readme, "dsh-plugin/README.md 缺少互不同步说明"
+
+
 def test_readme_documents_dsh_plugin_install():
     """DSH 插件安装功能与安全边界必须在 README 说明。"""
     text = (PKG / "README.md").read_text(encoding="utf-8")

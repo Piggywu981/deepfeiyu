@@ -21,9 +21,9 @@ export const DSH_PLUGIN_DEFS = Object.freeze([
     id: 'feiyu-mood',
     name: 'dsh-feiyu-mood',
     label: '心情（Harness 会话版）',
-    description: '上游 dsh-feiyu-mood：每轮 Harness 会话结束后判断心情，右下角挂饰与设置项都在 DSH 侧；不读微信，也不注入控制台的心情。',
+    description: '上游 dsh-feiyu-mood：每轮 Harness 会话结束后判断心情，右下角挂饰与设置项都在 DSH 侧；不读微信，也不注入控制台的心情，与「心情与桌宠（融合）」互不同步——同时启用会出现两套心情数值。',
     sizeHint: '约 7MB',
-    note: '装完可在 DSH 插件页调整阈值与注入方式。',
+    note: '装完可在 DSH 插件页调整阈值与注入方式；要与控制台同步请只用融合，别同时启用本插件。',
   }),
   Object.freeze({
     id: 'whale-widget',
